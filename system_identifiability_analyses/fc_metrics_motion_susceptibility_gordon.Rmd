@@ -1,0 +1,397 @@
+---
+title: "FC Metrics Susceptibility to Motion- Gordon ICA Fix Only"
+output:
+  html_document:
+    toc: true
+    theme: united
+    toc_depth: 6
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(psych)
+library(gam)
+library(summarytools)
+library(PerformanceAnalytics)
+library(ppcor)
+library(reshape2)
+library(ggplot2)
+library(R.matlab)
+library(Hmisc)
+```
+# All runs averaged together
+
+```{r load data, include=FALSE}
+data_dir="~/Documents/projects/in_progress/arun_fc_metrics_motion/"
+dropbox_data="~/Dropbox/projects/in_progress/arun_fc_metrics_motion/output/data/Gordon_ICA_FIX/"
+run1_data=read.csv(paste0(dropbox_data, "modularity_raw_REST1_LR_060319.csv"))
+run2_data=read.csv(paste0(dropbox_data, "modularity_raw_REST1_RL_060319.csv"))
+run3_data=read.csv(paste0(dropbox_data, "modularity_raw_REST2_LR_060319.csv"))
+run4_data=read.csv(paste0(dropbox_data, "modularity_raw_REST2_RL_060319.csv"))
+subject_list=read.csv(paste0(data_dir, "data/subjLists/S1200_Release_Subjects_Demographics.csv"))
+subject_list <- subject_list %>% dplyr::select(.,Subject:Age) %>% rename(., subject=Subject)
+```
+
+## Do partial correlations for each run and average them together
+
+```{r load data, include=FALSE}
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST1_LR/"
+motiondata1 <- read.csv(paste0(mydir,"/rfMRI_REST1_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data1 <- data.frame(subject_list, run1_data)
+alldata1 <- merge(modul_data1, motiondata1, by = "subject", all = TRUE)
+alldata1 <- alldata1 %>% filter(., num_communities_Pearson != 0)
+#recode age to be the median of the bins that are provided
+alldata1$Age_numeric <- dplyr::recode(alldata1$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+alldata1$Gender_numeric <- recode(alldata1$Gender, "M"=1, "F" = 2)
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST1_RL/"
+motiondata2 <- read.csv(paste0(mydir,"/rfMRI_REST1_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data2 <- data.frame(subject_list, run2_data)
+alldata2 <- merge(modul_data2, motiondata2, by = "subject", all = TRUE)
+alldata2 <- alldata2 %>% filter(., num_communities_Pearson != 0)
+#recode age to be the median of the bins that are provided
+alldata2$Age_numeric <- dplyr::recode(alldata2$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+alldata2$Gender_numeric <- recode(alldata2$Gender, "M"=1, "F" = 2)
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST2_LR/"
+motiondata3 <- read.csv(paste0(mydir,"/rfMRI_REST2_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data3 <- data.frame(subject_list, run3_data)
+alldata3 <- merge(modul_data3, motiondata3, by = "subject", all = TRUE)
+alldata3 <- alldata3 %>% filter(., num_communities_Pearson != 0)
+alldata3 <- na.omit(alldata3)
+#recode age to be the median of the bins that are provided
+alldata3$Age_numeric <- dplyr::recode(alldata3$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+alldata3$Gender_numeric <- recode(alldata3$Gender, "M"=1, "F" = 2)
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST2_RL/"
+motiondata4 <- read.csv(paste0(mydir,"/rfMRI_REST2_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data4 <- data.frame(subject_list, run4_data)
+alldata4 <- merge(modul_data4, motiondata4, by = "subject", all = TRUE)
+alldata4 <- alldata4 %>% filter(., num_communities_Pearson != 0)
+alldata4 <- na.omit(alldata4)
+#recode age to be the median of the bins that are provided
+alldata4$Age_numeric <- dplyr::recode(alldata4$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+alldata4$Gender_numeric <- recode(alldata4$Gender, "M"=1, "F" = 2)
+```
+
+## Just plot raw modularity across metrics
+
+```{r plot of raw modularity across different metrics}
+metrics=c("Pearson", "Spearman", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime")
+#calculate the relationship between raw modularity and motion for each of the 4 runs
+for (i in 1:4){
+  assign("data",get(paste0("alldata",i)))
+  mean_modul=numeric(6)
+   for (l in 1:6){
+    assign("metric", metrics[l])
+    temp <- data %>% dplyr::select(.,matches(paste0("^modul_",metric,"$")))
+    mean_modul[l]<- mean(temp[,1])
+     
+   }
+    assign(paste0("mean_modul_estimate_run",i),data.frame(mean_modul, metrics))
+}
+#beeswarm plot
+#Melt them together
+all <- cbind(mean_modul_estimate_run1, mean_modul_estimate_run2, mean_modul_estimate_run3, mean_modul_estimate_run4)
+all$metrics <- factor(all$metrics, levels=c("Pearson", "Spearman", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime"), labels=c("P", "S", "MIT", "C","WC", "MIF") )
+colnames(all) <- c("estimate1", "metrics", "estimate2","metrics", "estimate3", "metrics","estimate4", "metrics")
+all <- melt(all, id.vars = "metrics")
+#Plot them like Arun, using his colors
+p<-ggplot(all, aes(x=metrics, y=value, color=metrics)) + 
+  geom_jitter(position=position_jitter(0.2), cex=3)
+p + theme_classic() + stat_summary(fun.data="mean_sdl",fun.args = list(mult = 1) ,
+                 geom="pointrange", shape=95, cex=1) + labs(title="333-node Gordon parcellation",x="", y = "Modularity quality index (Q)")+ theme(plot.title = element_text(hjust = 0.5), legend.position = "none")+ theme(axis.text=element_text(size=14),
+        axis.title=element_text(size=14)) +scale_color_manual(values=c("#0072BD", "#D95319", "#EDB120", "#7E2F8E", "#77AC30", "#4DBEEE"))
+```
+
+## Modularity and motion, controlling for age and sex (as numeric) and avg weight
+```{r controlling for avgweight and covariates modul, echo=TRUE}
+metrics=c("Pearson", "Spearman", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime")
+#calculate the relationship between modularity and motion controlling for avg weight
+for (i in 1:4){
+  assign("data",get(paste0("alldata",i)))
+  pcorr_modul_estimate=numeric(6)
+  for (l in 1:6){
+    assign("metric", metrics[l])
+    temp <- data %>% dplyr::select(.,matches(paste0("_",metric,"$")),matches("motion"), matches("Age_numeric"),matches("Gender_numeric"))
+    print(colnames(temp))
+    temp2 <- cbind(temp[1], temp$Age_numeric, temp$Gender_numeric)
+    pcorr_modul_estimate[l] <- as.numeric(pcor.test(temp[2], temp$motion, temp2, method = "pearson")$estimate)
+  }
+  assign(paste0("pcorr_modul_estimate_run",i),data.frame(pcorr_modul_estimate, metrics))
+}
+
+#average them together
+averaged_pcormotion_allcovariates_acrossruns <-(pcorr_modul_estimate_run1$pcorr_modul_estimate+pcorr_modul_estimate_run2$pcorr_modul_estimate+pcorr_modul_estimate_run3$pcorr_modul_estimate+pcorr_modul_estimate_run4$pcorr_modul_estimate)/4
+averaged_pcormotion_allcovariates_acrossruns <- as.data.frame(averaged_pcormotion_allcovariates_acrossruns)
+averaged_pcormotion_allcovariates_acrossruns$names <- metrics
+
+barplot(averaged_pcormotion_allcovariates_acrossruns$averaged_pcormotion_allcovariates_acrossruns, names.arg =averaged_pcormotion_allcovariates_acrossruns$names, ylim=c(0.01, -0.08), col="darkblue", cex.axis=1.5, cex.names=1)
+
+#melt them all together
+all <- cbind(pcorr_modul_estimate_run1, pcorr_modul_estimate_run2, pcorr_modul_estimate_run3, pcorr_modul_estimate_run4)
+all$metrics <- factor(all$metrics, levels=c("Pearson", "Spearman", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime"), labels=c("P", "S", "MIT", "C","WC", "MIF") )
+colnames(all) <- c("estimate1", "metrics", "estimate2","metrics", "estimate3", "metrics","estimate4", "metrics")
+all <- melt(all, id.vars = "metrics")
+
+#Plot them like Arun, using his colors
+p<-ggplot(all, aes(x=metrics, y=value, color=metrics)) + 
+  geom_jitter(position=position_jitter(0), cex=1)
+p + theme_classic() + stat_summary(fun.data="mean_sdl",fun.args = list(mult = 1) ,
+                 geom="pointrange", shape=95, cex=1) + labs(title="333-node Gordon parcellation",x="", y = "Partial correlation of Q with motion")+ theme(plot.title = element_text(hjust = 0.5), legend.position = "none")+ theme(axis.text=element_text(size=14),
+        axis.title=element_text(size=14)) +scale_color_manual(values=c("#0072BD", "#D95319", "#EDB120", "#7E2F8E", "#77AC30", "#4DBEEE"))+geom_hline(yintercept = 0)
+```
+
+# Low-motion Edges
+Examine modularity calculated only using the 20% of edges that show the lowest susceptibility to motion.
+Run the first two chunks first.
+```{r load data, include=FALSE}
+data_dir="~/Documents/projects/in_progress/arun_fc_metrics_motion/"
+dropbox_data="~/Dropbox/projects/in_progress/arun_fc_metrics_motion/output/data/Gordon_ICA_FIX/nomotion_edges/"
+#run 1
+nomotion_run1_data=readMat(paste0(dropbox_data, "modul_nomotionedges_run1.mat"))
+nomotion_run1_data <- data.frame(matrix(unlist(nomotion_run1_data$modul, use.names = FALSE), nrow=length(nomotion_run1_data$modul[[1]]), byrow=F))
+colnames(nomotion_run1_data) <- c('MutualInformation','Coherence',  'MutualInformationTime','Pearson','Spearman', 'WaveletCoherence')
+nomotion_run1_avgweightdata=readMat(paste0(dropbox_data, "modul_nomotionedges_run1.mat"))
+nomotion_run1_data <- data.frame(matrix(unlist(nomotion_run1_data$modul, use.names = FALSE), nrow=length(nomotion_run1_data$modul[[1]]), byrow=F))
+colnames(nomotion_run1_data) <- c('MutualInformation','Coherence',  'MutualInformationTime','Pearson','Spearman', 'WaveletCoherence')
+#run 2
+nomotion_run2_data=readMat(paste0(dropbox_data, "modul_nomotionedges_run2.mat"))
+nomotion_run2_data <- data.frame(matrix(unlist(nomotion_run2_data$modul, use.names = FALSE), nrow=length(nomotion_run2_data$modul[[1]]), byrow=F))
+colnames(nomotion_run2_data) <- c('MutualInformation','Coherence',  'MutualInformationTime','Pearson','Spearman', 'WaveletCoherence')
+#run 3
+nomotion_run3_data=readMat(paste0(dropbox_data, "modul_nomotionedges_run3.mat"))
+nomotion_run3_data <- data.frame(matrix(unlist(nomotion_run3_data$modul, use.names = FALSE), nrow=length(nomotion_run3_data$modul[[1]]), byrow=F))
+colnames(nomotion_run3_data) <- c('MutualInformation','Coherence',  'MutualInformationTime','Pearson','Spearman', 'WaveletCoherence')
+#run 4
+nomotion_run4_data=readMat(paste0(dropbox_data, "modul_nomotionedges_run4.mat"))
+nomotion_run4_data <- data.frame(matrix(unlist(nomotion_run4_data$modul, use.names = FALSE), nrow=length(nomotion_run4_data$modul[[1]]), byrow=F))
+colnames(nomotion_run4_data) <- c('MutualInformation','Coherence',  'MutualInformationTime','Pearson','Spearman', 'WaveletCoherence')
+subject_list=read.csv(paste0(data_dir, "data/subjLists/S1200_Release_Subjects_Demographics.csv"))
+subject_list <- subject_list %>% dplyr::select(.,Subject:Age) %>% rename(., subject=Subject)
+#merge them with the original data files so that they have the right number of submects
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST1_LR/"
+motiondata1 <- read.csv(paste0(mydir,"/rfMRI_REST1_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data1 <- data.frame(subject_list, nomotion_run1_data)
+nomotion_alldata1 <- merge(modul_data1,motiondata1, by = "subject", all = TRUE)
+nomotion_alldata1 <- nomotion_alldata1 %>% filter(., Pearson != 0)
+#recode age to be the median of the bins that are provided
+nomotion_alldata1$Age_numeric <- dplyr::recode(nomotion_alldata1$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST1_RL/"
+motiondata2 <- read.csv(paste0(mydir,"/rfMRI_REST1_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data2 <- data.frame(subject_list, nomotion_run2_data)
+nomotion_alldata2 <- merge(modul_data2, motiondata2, by = "subject", all = TRUE)
+nomotion_alldata2 <- nomotion_alldata2 %>% filter(., Pearson != 0)
+#recode age to be the median of the bins that are provided
+nomotion_alldata2$Age_numeric <- dplyr::recode(nomotion_alldata2$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST2_LR/"
+motiondata3 <- read.csv(paste0(mydir,"/rfMRI_REST2_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data3 <- data.frame(subject_list, nomotion_run3_data)
+nomotion_alldata3 <- merge(modul_data3, motiondata3, by = "subject", all = TRUE)
+nomotion_alldata3 <- nomotion_alldata3 %>% filter(., Pearson != 0)
+nomotion_alldata3 <- na.omit(nomotion_alldata3)
+#recode age to be the median of the bins that are provided
+nomotion_alldata3$Age_numeric <- dplyr::recode(nomotion_alldata3$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST2_RL/"
+motiondata4 <- read.csv(paste0(mydir,"/rfMRI_REST2_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data4 <- data.frame(subject_list, nomotion_run4_data)
+nomotion_alldata4 <- merge(modul_data4, motiondata4, by = "subject", all = TRUE)
+nomotion_alldata4 <- nomotion_alldata4 %>% filter(.,Pearson != 0)
+nomotion_alldata4 <- na.omit(nomotion_alldata4)
+nomotion_alldata4$Age_numeric <- dplyr::recode(nomotion_alldata4$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+```
+
+## Just plot raw modularity across metrics
+
+```{r plot of raw lowmotion modularity}
+metrics=c('MutualInformation','Coherence',  'MutualInformationTime','Pearson','Spearman', 'WaveletCoherence')
+#calculate the relationship between raw modularity and motion for each of the 4 runs
+for (i in 1:4){
+  assign("data",get(paste0("nomotion_alldata",i)))
+  rawcorr_modul_estimate=numeric(6)
+   for (l in 1:6){
+    assign("metric", metrics[l])
+    temp <- data %>% dplyr::select(.,matches(paste0("^",metric,"$")),matches("motion"), matches("Gender"),matches("Age_numeric"))
+    print(colnames(temp))
+    temp2 <- cbind(temp$Age_numeric, temp[3])
+    pcorr_modul[l]<- mean(temp[,1])
+   }
+    assign(paste0("pcorr_modul_estimate_run",i),data.frame(pcorr_modul, metrics))
+}
+#beeswarm plot
+#Melt them together
+all <- cbind(pcorr_modul_estimate_run1, pcorr_modul_estimate_run2, pcorr_modul_estimate_run3, pcorr_modul_estimate_run4)
+all$metrics <- factor(all$metrics, levels=c('MutualInformation','Coherence',  'MutualInformationTime','Pearson','Spearman', 'WaveletCoherence'), labels=c("MI", "C", "MIT", "P", "S","WC") )
+colnames(all) <- c("estimate1", "metrics", "estimate2","metrics", "estimate3", "metrics","estimate4", "metrics")
+all <- melt(all, id.vars = "metrics")
+#Plot them like Arun, using his colors
+p<-ggplot(all, aes(x=metrics, y=value, color=metrics)) + 
+  geom_jitter(position=position_jitter(0), cex=2)
+p + theme_classic() + stat_summary(fun.data="mean_sdl",fun.args = list(mult = 1) ,
+                 geom="pointrange", shape=18, cex=1.3) + labs(title="333-node Gordon parcellation",x="", y = "Modularity quality index (Q)")+ theme(plot.title = element_text(hjust = 0.5))+ theme(axis.text=element_text(size=14),
+        axis.title=element_text(size=14)) +scale_color_manual(values=c("#0072BD", "#D95319", "#EDB120", "#7E2F8E", "#77AC30", "#4DBEEE"))
+```
+
+# Modularity quality using the a priori partition
+Merge with orig files.
+IMPORTANT: There was a bug in the matlab script which means that later runs have values for modularity for subjects that are not there, because modul was not cleared out between loops. This only applies to the re-ranked matrices run using the Schaefer parcellation, which were run all in one loop, so here we avoid it by merging into the original files which have the right number of subjects.
+```{r load data, include=FALSE}
+data_dir="~/Documents/projects/in_progress/arun_fc_metrics_motion/"
+dropbox_data="/data/jux/mackey_group/Ursula/projects/in_progress/arun_fc_metrics_motion/output/data/Gordon_ICA_FIX/"
+rerank_run1_data=readMat(paste0(dropbox_data, "modul_gordon_partition1.mat"))
+rerank_run1_data <- data.frame(matrix(unlist(rerank_run1_data$modul, use.names = FALSE), nrow=length(rerank_run1_data$modul[[1]]), byrow=F))
+colnames(rerank_run1_data) <- c('Coherence', 'MutualInformation', 'MutualInformationTime','Pearson','Spearman', 'WaveletCoherence')
+rerank_run2_data=readMat(paste0(dropbox_data, "modul_gordon_partition2.mat"))
+rerank_run2_data <- data.frame(matrix(unlist(rerank_run2_data$modul, use.names = FALSE), nrow=length(rerank_run2_data$modul[[1]]), byrow=F))
+colnames(rerank_run2_data) <- c('Coherence', 'MutualInformation', 'MutualInformationTime','Pearson','Spearman', 'WaveletCoherence')
+rerank_run3_data=readMat(paste0(dropbox_data, "modul_gordon_partition3.mat"))
+rerank_run3_data <- data.frame(matrix(unlist(rerank_run3_data$modul, use.names = FALSE), nrow=length(rerank_run3_data$modul[[1]]), byrow=F))
+colnames(rerank_run3_data) <- c('Coherence', 'MutualInformation', 'MutualInformationTime','Pearson','Spearman', 'WaveletCoherence')
+rerank_run4_data=readMat(paste0(dropbox_data, "new_modul_gordon_partition4.mat"))
+rerank_run4_data <- data.frame(matrix(unlist(rerank_run4_data$modul, use.names = FALSE), nrow=length(rerank_run4_data$modul[[1]]), byrow=F))
+colnames(rerank_run4_data) <- c('Coherence', 'MutualInformation', 'MutualInformationTime','Pearson','Spearman', 'WaveletCoherence')
+subject_list=read.csv(paste0(data_dir, "data/subjLists/S1200_Release_Subjects_Demographics.csv"))
+subject_list <- subject_list %>% dplyr::select(.,Subject:Age) %>% rename(., subject=Subject)
+#merge them with the original data files so that they have the right number of submects
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST1_LR/"
+motiondata1 <- read.csv(paste0(mydir,"/rfMRI_REST1_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data1 <- data.frame(subject_list, rerank_run1_data)
+rerank_alldata1 <- merge(modul_data1, alldata1, by = "subject", all = TRUE)
+rerank_alldata1 <- rerank_alldata1 %>% filter(., Pearson != 0)
+#recode age to be the median of the bins that are provided
+#rerank_alldata1$Age_numeric <- dplyr::recode(rerank_alldata1$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST1_RL/"
+motiondata2 <- read.csv(paste0(mydir,"/rfMRI_REST1_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data2 <- data.frame(subject_list, rerank_run2_data)
+rerank_alldata2 <- merge(modul_data2, alldata2, by = "subject", all = TRUE)
+rerank_alldata2 <- rerank_alldata2 %>% filter(., Pearson != 0)
+#recode age to be the median of the bins that are provided
+#rerank_alldata2$Age_numeric <- dplyr::recode(rerank_alldata2$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST2_LR/"
+motiondata3 <- read.csv(paste0(mydir,"/rfMRI_REST2_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data3 <- data.frame(subject_list, rerank_run3_data)
+rerank_alldata3 <- merge(modul_data3, alldata3, by = "subject", all = TRUE)
+rerank_alldata3 <- rerank_alldata3 %>% filter(., Pearson != 0)
+rerank_alldata3 <- na.omit(rerank_alldata3)
+#recode age to be the median of the bins that are provided
+#rerank_alldata3$Age_numeric <- dplyr::recode(rerank_alldata3$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST2_RL/"
+motiondata4 <- read.csv(paste0(mydir,"/rfMRI_REST2_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data4 <- data.frame(subject_list, rerank_run4_data)
+rerank_alldata4 <- merge(modul_data4, alldata4, by = "subject", all = TRUE)
+rerank_alldata4 <- rerank_alldata4 %>% filter(.,Pearson != 0)
+rerank_alldata4 <- na.omit(rerank_alldata4)
+```
+
+## Look at raw modularity calculated using the a priori partition
+
+```{r modularity motion, echo=TRUE}
+metrics=c("Pearson", "Spearman", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime")
+#calculate the relationship between raw modularity and motion for each of the 4 runs
+for (i in 1:4){
+  assign("data",get(paste0("rerank_alldata",i)))
+  mean_modul=numeric(6)
+   for (l in 1:6){
+    assign("metric", metrics[l])
+    temp <- data %>% dplyr::select(.,matches(paste0("^modul_",metric,"$")))
+    # print(colnames(temp))
+    # temp2 <- cbind(temp$Age_numeric, temp[3])
+    mean_modul[l]<- mean(temp[,1])
+     
+   }
+    assign(paste0("mean_modul_estimate_run",i),data.frame(mean_modul, metrics))
+}
+#beeswarm plot
+#Melt them together
+all <- cbind(mean_modul_estimate_run1, mean_modul_estimate_run2, mean_modul_estimate_run3, mean_modul_estimate_run4)
+all$metrics <- factor(metrics, levels=c("Pearson", "Spearman", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime"), labels=c("P", "S", "MIT", "C","WC", "MIF") )
+colnames(all) <- c("estimate1", "metrics", "estimate2","metrics", "estimate3", "metrics","estimate4", "metrics")
+all <- melt(all, id.vars = "metrics")
+#Plot them like Arun, using his colors
+p<-ggplot(all, aes(x=metrics, y=value, color=metrics)) + 
+  geom_jitter(position=position_jitter(0.2), cex=1)
+p + theme_classic() + stat_summary(fun.data="mean_sdl",fun.args = list(mult = 1) ,
+                 geom="pointrange", shape=95, cex=1) + labs(title="333-node Gordon parcellation",x="", y = "Modularity quality index (Q)")+ theme(plot.title = element_text(hjust = 0.5), legend.position = "none")+ theme(axis.text=element_text(size=14),
+        axis.title=element_text(size=14)) +scale_color_manual(values=c("#0072BD", "#D95319", "#EDB120", "#7E2F8E", "#77AC30", "#4DBEEE"))
+```
+
+# Import modularity calculated using the absolute value matrices
+```{r load data, include=FALSE}
+data_dir="~/Documents/projects/in_progress/arun_fc_metrics_motion/"
+dropbox_data="~/Dropbox/projects/in_progress/arun_fc_metrics_motion/output/data/Gordon_ICA_FIX/abs_value_PearsonSpearman/"
+rerank_run1_data=readMat(paste0(dropbox_data, "modul_absvalue_run1.mat"))
+rerank_run1_data <- data.frame(matrix(unlist(rerank_run1_data$modul, use.names = FALSE), nrow=length(rerank_run1_data$modul[[1]]), byrow=F))
+colnames(rerank_run1_data) <- c('MutualInformation', 'Spearman','Coherence', 'MutualInformationTime','Pearson','WaveletCoherence')
+rerank_run2_data=readMat(paste0(dropbox_data, "modul_absvalue_run2.mat"))
+rerank_run2_data <- data.frame(matrix(unlist(rerank_run2_data$modul, use.names = FALSE), nrow=length(rerank_run2_data$modul[[1]]), byrow=F))
+colnames(rerank_run2_data) <- c('MutualInformation', 'Spearman','Coherence', 'MutualInformationTime','Pearson','WaveletCoherence')
+rerank_run3_data=readMat(paste0(dropbox_data, "modul_absvalue_run3.mat"))
+rerank_run3_data <- data.frame(matrix(unlist(rerank_run3_data$modul, use.names = FALSE), nrow=length(rerank_run3_data$modul[[1]]), byrow=F))
+colnames(rerank_run3_data) <- c('MutualInformation', 'Spearman','Coherence', 'MutualInformationTime','Pearson','WaveletCoherence')
+rerank_run4_data=readMat(paste0(dropbox_data, "modul_absvalue_run4.mat"))
+rerank_run4_data <- data.frame(matrix(unlist(rerank_run4_data$modul, use.names = FALSE), nrow=length(rerank_run4_data$modul[[1]]), byrow=F))
+colnames(rerank_run4_data) <- c('MutualInformation', 'Spearman','Coherence', 'MutualInformationTime','Pearson','WaveletCoherence')
+subject_list=read.csv(paste0(data_dir, "data/subjLists/S1200_Release_Subjects_Demographics.csv"))
+subject_list <- subject_list %>% dplyr::select(.,Subject:Age) %>% rename(., subject=Subject)
+#merge them with the original data files so that they have the right number of submects
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST1_LR/"
+motiondata1 <- read.csv(paste0(mydir,"/rfMRI_REST1_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data1 <- data.frame(subject_list, rerank_run1_data)
+rerank_alldata1 <- merge(modul_data1, alldata1, by = "subject", all = TRUE)
+rerank_alldata1 <- rerank_alldata1 %>% filter(., Pearson != 0)
+#recode age to be the median of the bins that are provided
+#rerank_alldata1$Age_numeric <- dplyr::recode(rerank_alldata1$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST1_RL/"
+motiondata2 <- read.csv(paste0(mydir,"/rfMRI_REST1_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data2 <- data.frame(subject_list, rerank_run2_data)
+rerank_alldata2 <- merge(modul_data2, alldata2, by = "subject", all = TRUE)
+rerank_alldata2 <- rerank_alldata2 %>% filter(., Pearson != 0)
+#recode age to be the median of the bins that are provided
+#rerank_alldata2$Age_numeric <- dplyr::recode(rerank_alldata2$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST2_LR/"
+motiondata3 <- read.csv(paste0(mydir,"/rfMRI_REST2_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data3 <- data.frame(subject_list, rerank_run3_data)
+rerank_alldata3 <- merge(modul_data3, alldata3, by = "subject", all = TRUE)
+rerank_alldata3 <- rerank_alldata3 %>% filter(., Pearson != 0)
+rerank_alldata3 <- na.omit(rerank_alldata3)
+#recode age to be the median of the bins that are provided
+#rerank_alldata3$Age_numeric <- dplyr::recode(rerank_alldata3$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
+mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Motion_S1200/rfMRI_REST2_RL/"
+motiondata4 <- read.csv(paste0(mydir,"/rfMRI_REST2_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
+modul_data4 <- data.frame(subject_list, rerank_run4_data)
+rerank_alldata4 <- merge(modul_data4, alldata4, by = "subject", all = TRUE)
+rerank_alldata4 <- rerank_alldata4 %>% filter(.,Pearson != 0)
+rerank_alldata4 <- na.omit(rerank_alldata4)
+```
+
+## Just plot raw modularity across metrics
+
+```{r plot of raw modularity across different metrics}
+metrics=c("Pearson", "Spearman", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime")
+#calculate the relationship between raw modularity and motion for each of the 4 runs
+for (i in 1:4){
+  assign("data",get(paste0("rerank_alldata",i)))
+  mean_modul=numeric(6)
+   for (l in 1:6){
+    assign("metric", metrics[l])
+    temp <- data %>% dplyr::select(.,matches(paste0("^",metric,"$")))
+    #print(colnames(temp))
+    # temp2 <- cbind(temp$Age_numeric, temp[3])
+    mean_modul[l]<- mean(temp[,1])
+     
+   }
+    assign(paste0("mean_modul_estimate_run",i),data.frame(mean_modul, metrics))
+}
+#beeswarm plot
+#Melt them together
+all <- cbind(mean_modul_estimate_run1, mean_modul_estimate_run2, mean_modul_estimate_run3, mean_modul_estimate_run4)
+all$metrics <- factor(all$metrics, levels=c("Pearson", "Spearman", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime"), labels=c("P", "S", "MIT", "C","WC", "MIF") )
+colnames(all) <- c("estimate1", "metrics", "estimate2","metrics", "estimate3", "metrics","estimate4", "metrics")
+all <- melt(all, id.vars = "metrics")
+#Plot them like Arun, using his colors
+p<-ggplot(all, aes(x=metrics, y=value, color=metrics)) + 
+  geom_jitter(position=position_jitter(0.2), cex=2.5)
+p + theme_classic() + stat_summary(fun.data="mean_sdl",fun.args = list(mult = 1) ,
+                 geom="pointrange", shape=95, cex=1) + labs(title="333-node Gordon parcellation",x="", y = "Modularity quality index (Q)")+ theme(plot.title = element_text(hjust = 0.5), legend.position = "none")+ theme(axis.text=element_text(size=14),
+        axis.title=element_text(size=14)) +scale_color_manual(values=c("#0072BD", "#D95319", "#EDB120", "#7E2F8E", "#77AC30", "#4DBEEE"))
+```
