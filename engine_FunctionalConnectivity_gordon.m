@@ -22,9 +22,9 @@ taskTypes = {'REST1_LR', 'REST1_RL', 'REST2_LR', 'REST2_RL'};
 %taskTypes = {'REST2_LR'};
 
 %% add necessary toolboxes to path
-addpath(genpath('wavelet-coherence-master'));
-addpath(genpath('Functional Connectivity Toolbox_updated'));
-addpath(genpath('npy-matlab-master'));
+addpath(genpath('/cbica/home/mahadeva/matlab/wavelet-coherence-master'));
+addpath(genpath('/cbica/home/mahadeva/matlab/Functional Connectivity Toolbox_updated'));
+addpath(genpath('/cbica/home/mahadeva/matlab/npy-matlab-master'));
 
 %% set parameters
 
