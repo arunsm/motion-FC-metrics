@@ -11,7 +11,6 @@
 % OUTPUT: Symmetric, weighted pxp adjacency matrix
 
 function A = FC_waveletCoherence(t, bandpass, tr)
-tic
 nNodes = size(t,2);
 cohij = zeros(nNodes);
 for i = 1:nNodes-1
@@ -23,5 +22,4 @@ for i = 1:nNodes-1
 end
 
 A = cohij +cohij';
-toc
 end

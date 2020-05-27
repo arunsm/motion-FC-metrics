@@ -11,7 +11,12 @@
 % OUTPUT: Symmetric, weighted pxp adjacency matrix
 
 function A = FC_coherence(t, tr, f1, f2)
-tic
+
+    % pause processing until signal toolbox is available
+    while (~license('checkout', 'Signal_Toolbox'))
+	pause(30);
+    end
+
     nNodes = size(t, 2);
     A = zeros(nNodes);
     for i = 1:nNodes-1
@@ -23,5 +28,4 @@ tic
         end
     end
     A = A + A';
-toc
 end

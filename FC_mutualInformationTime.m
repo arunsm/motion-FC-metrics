@@ -9,6 +9,12 @@
 % OUTPUT: Symmetric, weighted pxp adjacency matrix
 
 function A = FC_mutualInformationTime(t)
+
+    % pausing until statistics toolbox is available
+    while (~license('checkout', 'Statistics_Toolbox'))
+        pause(30);
+    end
+
     nNodes = size(t, 2);
     A = zeros(nNodes);
     for i = 1:nNodes-1

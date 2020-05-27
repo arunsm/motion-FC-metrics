@@ -32,12 +32,12 @@ tr = 0.72; % relaxation time in seconds
 f1 = 0.009; % lower range for frequency domain connectivity metrics (in Hz)
 f2 = 0.08; % upper range for frequency domain connectivity metrics (in Hz)
 
-%FC_methods = {'Pearson', 'Spearman', 'Coherence', 'WaveletCoherence', 'MutualInformation', 'MutualInformationTime'};
-FC_methods = {'MutualInformationTime'};
-motionCorrectionMethods = {'CompCor_matrices', 'FIX_matrices'};
+FC_methods = {'Pearson', 'PartialCorrelation', 'Spearman', 'Coherence', 'WaveletCoherence', 'MutualInformation', 'MutualInformationTime'};
+%FC_methods = {'MutualInformationTime'};
+motionCorrectionMethods = {'ts'};
 nPipelines = numel(motionCorrectionMethods);
 atlasType = 'gordon';
-resultsFolder = '../Data/FunctionalConnectivityMatrices';
+resultsFolder = '/cbica/home/mahadeva/motion-FC-metrics/data/FunctionalConnectivityMatrices_nogsr_nofilter';
 if ~exist(resultsFolder, 'dir')
     mkdir(resultsFolder)
 end
@@ -48,16 +48,17 @@ for t = 1:numel(taskTypes)
     fprintf(taskType); fprintf('\n')
     for fc = 1:numel(FC_methods)
         currentFCmethod = FC_methods{fc};
+	fprintf(currentFCmethod); fprintf('\n')
         for p= 1:nPipelines
             currentPipeline = motionCorrectionMethods{p};
-            currentFilePath = strcat('../Data/', currentPipeline, filesep, atlasType, '_', num2str(subjectID), '_', taskType, '_ts.npy');
+            currentFilePath = strcat('/cbica/home/mahadeva/motion-FC-metrics/data/ICAFIX_matrices_nobp/', currentPipeline, filesep, atlasType, '_', num2str(subjectID), '_', taskType, '_nogsr.npy');
             if exist(currentFilePath, 'file')
                 savePath = strcat(resultsFolder, filesep, atlasType, '_', num2str(subjectID), '_', taskType, '_', currentPipeline, '_', currentFCmethod, '.mat');
                 if exist(savePath, 'file')
                     fprintf('Adjacency matrix for subject %d, parcellation %s, preprocessing pipeline %s, FC method %s already exists\n', subjectID, atlasType, currentPipeline, currentFCmethod)
                     continue;
                 else
-                    timeSeriesData = readNPY(currentFilePath)';
+		    timeSeriesData = readNPY(currentFilePath)';
                     fprintf('Computing functional connectivity for subject %d, parcellation %s, preprocessing pipeline %s, using %s\n', subjectID, atlasType, currentPipeline, currentFCmethod)
                     AdjMat = computeFunctionalConnectivity(timeSeriesData, currentFCmethod, f1, f2, tr);
                     save(savePath, 'AdjMat');

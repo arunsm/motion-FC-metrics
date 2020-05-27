@@ -21,9 +21,9 @@ function engine_FunctionalConnectivity_yeo(subjectID, taskIndicator)
 taskTypes = {'REST1_LR', 'REST1_RL', 'REST2_LR', 'REST2_RL'};
 
 %% add necessary toolboxes to path
-addpath(genpath('wavelet-coherence-master'));
-addpath(genpath('Functional Connectivity Toolbox_updated'));
-addpath(genpath('npy-matlab-master'));
+addpath(genpath('/cbica/home/mahadeva/matlab/wavelet-coherence-master'));
+addpath(genpath('/cbica/home/mahadeva/matlab/Functional Connectivity Toolbox_updated'));
+addpath(genpath('/cbica/home/mahadeva/matlab/npy-matlab-master'));
 
 %% set parameters
 
@@ -31,12 +31,12 @@ tr = 0.72; % relaxation time in seconds
 f1 = 0.009; % lower range for frequency domain connectivity metrics (in Hz)
 f2 = 0.08; % upper range for frequency domain connectivity metrics (in Hz)
 
-%FC_methods = {'Pearson', 'Spearman', 'Coherence', 'WaveletCoherence', 'MutualInformation', 'MutualInformationTime'};
-FC_methods = {'MutualInformationTime'};
-motionCorrectionMethods = {'CompCor_matrices', 'FIX_matrices'};
+FC_methods = {'Pearson', 'PartialCorrelation', 'Spearman', 'Coherence', 'WaveletCoherence', 'MutualInformation', 'MutualInformationTime'};
+%FC_methods = {'MutualInformationTime'};
+motionCorrectionMethods = {'ts'};
 nPipelines = numel(motionCorrectionMethods);
 atlasType = 'yeo_100';
-resultsFolder = '../Data/FunctionalConnectivityMatrices';
+resultsFolder = '../data/FunctionalConnectivityMatrices_nogsr_nofilter';
 if ~exist(resultsFolder, 'dir')
     mkdir(resultsFolder)
 end
@@ -44,11 +44,13 @@ end
 %% run FC analysis for all pipelines and all methods
 for t = 1:numel(taskTypes)
     taskType = taskTypes{t};
+    fprintf(taskType); fprintf('\n')    
     for fc = 1:numel(FC_methods)
         currentFCmethod = FC_methods{fc};
-        for p= 1:nPipelines
+        fprintf(currentFCmethod); fprintf('\n')
+	for p= 1:nPipelines
             currentPipeline = motionCorrectionMethods{p};
-            currentFilePath = strcat('../Data/', currentPipeline, filesep, atlasType, '_', num2str(subjectID), '_', taskType, '_ts.npy');
+            currentFilePath = strcat('/cbica/home/mahadeva/motion-FC-metrics/data/ICAFIX_matrices_nobp/', currentPipeline, filesep, atlasType, '_', num2str(subjectID), '_', taskType, '_nogsr.npy');
             if exist(currentFilePath, 'file')
                 savePath = strcat(resultsFolder, filesep, atlasType, '_', num2str(subjectID), '_', taskType, '_', currentPipeline, '_', currentFCmethod, '.mat');
                 if exist(savePath, 'file')

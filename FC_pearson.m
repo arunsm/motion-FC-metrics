@@ -4,6 +4,12 @@
 % OUTPUT: Symmetric, weighted pxp adjacency matrix
 
 function A = FC_pearson(t)
+
+    % pausing until statistics toolbox is available
+    while (~license('checkout', 'Statistics_Toolbox'))
+        pause(30);
+    end
+
     A = corr(t);
     % setting diagonal elements to zero
     for j = 1:size(A, 1)
