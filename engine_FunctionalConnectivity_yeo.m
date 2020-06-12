@@ -36,7 +36,7 @@ FC_methods = {'Pearson', 'PartialCorrelation', 'Spearman', 'Coherence', 'Wavelet
 motionCorrectionMethods = {'ts'};
 nPipelines = numel(motionCorrectionMethods);
 atlasType = 'yeo_100';
-resultsFolder = '../data/FunctionalConnectivityMatrices_nogsr_nofilter';
+resultsFolder = '../data/FunctionalConnectivityMatrices_nogsr_filter';
 if ~exist(resultsFolder, 'dir')
     mkdir(resultsFolder)
 end
@@ -44,11 +44,19 @@ end
 %% run FC analysis for all pipelines and all methods
 for t = 1:numel(taskTypes)
     taskType = taskTypes{t};
-    fprintf(taskType); fprintf('\n')    
+    fprintf(taskType); fprintf('\n')
+    
+    s = importdata(strcat('../data/subjectsList_', taskType, '.csv'));
+    subjectsList = s.data;
+    if ~ismember(subjectID, subjectsList)
+        fprintf('skipping subject %d, not in subjects list\n', subjectID);
+        continue;
+    end
+    
     for fc = 1:numel(FC_methods)
         currentFCmethod = FC_methods{fc};
         fprintf(currentFCmethod); fprintf('\n')
-	for p= 1:nPipelines
+        for p= 1:nPipelines
             currentPipeline = motionCorrectionMethods{p};
             currentFilePath = strcat('/cbica/home/mahadeva/motion-FC-metrics/data/ICAFIX_matrices_nobp/', currentPipeline, filesep, atlasType, '_', num2str(subjectID), '_', taskType, '_nogsr.npy');
             if exist(currentFilePath, 'file')
@@ -58,6 +66,10 @@ for t = 1:numel(taskTypes)
                     continue;
                 else
                     timeSeriesData = readNPY(currentFilePath)';
+                    
+                    % filtering data
+                    timeSeriesData = bandpass_filter_butterworth(timeSeriesData, tr, f1, f2); 
+                    
                     fprintf('Computing functional connectivity for subject %d, parcellation %s, preprocessing pipeline %s, using %s\n', subjectID, atlasType, currentPipeline, currentFCmethod)
                     AdjMat = computeFunctionalConnectivity(timeSeriesData, currentFCmethod, f1, f2, tr);
                     save(savePath, 'AdjMat');

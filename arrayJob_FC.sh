@@ -3,12 +3,14 @@
 
 TASK=4
 
-ARRAY=( $(tail -n +2 /cbica/home/mahadeva/motion-FC-metrics/data/Covariates/S1200_Release_Subjects_Demographics.csv | cut -d , -f1))
+#ARRAY=( $(tail -n +2 /cbica/home/mahadeva/motion-FC-metrics/data/Covariates/S1200_Release_Subjects_Demographics.csv | cut -d , -f1))
+
+readarray ARRAY < ../data/subjectsList_incomplete.csv
 
 LENGTH=${#ARRAY[@]}
 echo Total number of subjects: $LENGTH
 
-#$ -t 1-1206
+#$ -t 1-2
 #$ -j y
 #$ -l h_vmem=6.1G,s_vmem=6.0G
 
