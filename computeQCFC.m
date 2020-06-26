@@ -1,59 +1,100 @@
 % Script to compute QC-FC (quality control-functional connectivity) metrics
 % fraction significant edges, median absolute correlation
 
-saveResultsFolder = strcat('Results/', date, '/');
-if ~exist(saveResultsFolder)
-    mkdir(saveResultsFolder);
-end
+%% set parameters
 
-FC_methods = {'Pearson', 'Spearman', 'Coherence', 'WaveletCoherence', 'MutualInformation', 'MutualInformationTime'};
+preprocessingVariants = {'gsr_filter', 'gsr_nofilter', 'nogsr_filter', 'nogsr_nofilter'};
+FC_methods = {'Pearson', 'PartialCorrelation', 'Spearman', 'Coherence', 'WaveletCoherence', 'MutualInformation', 'MutualInformationTime'};
 atlasTypes = {'gordon', 'yeo_100'};
-taskTypes = {'REST1_LR', 'REST1_RL','REST2_LR', 'REST2_RL'};
-motionCorrectionMethods = {'CompCor_matrices', 'FIX_matrices'};
-nPipelines = numel(motionCorrectionMethods);
+restingStateScans = {'REST1_LR', 'REST1_RL','REST2_LR', 'REST2_RL'};
 
-for fc = 1:numel(FC_methods)
-    current_FC_method = FC_methods{fc};
-    fprintf(current_FC_method); fprintf('\n')
+subjectDemographics = readtable('../data/Covariates/S1200_Release_Subjects_Demographics.csv'); % reading demographic information
+nSubjects_total = numel(subjectDemographics.Subject);
+
+%% looping through all preprocessing variants, FC methods, atlases and scans
+for p = 1:numel(preprocessingVariants)
+    currentPreprocessingVariant = preprocessingVariants{p};
     
-    for a = 1:numel(atlasTypes)
-        currentAtlasType = atlasTypes{a};
-        fprintf(currentAtlasType); fprintf('\n');
-
-        for t = 1:numel(taskTypes)
-            currentTaskType = taskTypes{t};
-            fprintf(currentTaskType); fprintf('\n'); 
-	        fractionSignificantEdges = cell(3, nPipelines);
-            medianAbsoluteCorrelation = cell(3, nPipelines);
-
-            for p = 1:nPipelines
-                currentPipeline = motionCorrectionMethods{p};
+    saveResultsFolder = strcat('Results/', date, filesep, currentPreprocessingVariant, filesep);
+    if ~exist(saveResultsFolder)
+        mkdir(saveResultsFolder);
+    end
+    
+    path2FC_matrices = strcat('../data/FunctionalConnectivityMatrices_', currentPreprocessingVariant, filesep);
+    
+    % computing QC-FC only for ICA_FIX pipeline
+    if strcmp(currentPreprocessingVariant, 'gsr_filter')
+        currentPipeline = 'FIX_matrices';
+    else
+        currentPipeline = 'ts';
+    end
+    
+    for fc = 1:numel(FC_methods)
+        current_FC_method = FC_methods{fc};
+        fprintf(current_FC_method); fprintf('\n')
+        
+        for a = 1:numel(atlasTypes)
+            currentAtlasType = atlasTypes{a};
+            fprintf(currentAtlasType); fprintf('\n');
+            
+            TRT_parameters = {}; % cell array with test-retest reliability parameters
+            edgeWeights_allScans = cell(nSubjects_total, 5); % cell array of edge weights for all scans
+            motion_allScans = cell(nSubjects_total, 5); % cell array of edge weights for all scans
+            edgeWeights_allScans(:, 1) = num2cell(subjectDemographics.Subject);
+            motion_allScans(:, 1) = num2cell(subjectDemographics.Subject);
+            
+            for t = 1:numel(restingStateScans)
+                currentRestingStateScan = restingStateScans{t};
+                fprintf(currentRestingStateScan); fprintf('\n');
                 
-                % read in motion time series
-                folderPath = strcat('../Data/Motion_S1200/rfMRI_', currentTaskType, '/');
-                d = dir(strcat(folderPath, '*RelativeRMS_mean.txt'));
+                QCFC_parameters = {}; % cell array with QC-FC parameters
+                
+                %% compile motion and demographic information
+                path2MotionFiles = strcat('../data/Motion_S1200/rfMRI_', currentRestingStateScan, '/');
+                d = dir(strcat(path2MotionFiles, '*RelativeRMS_mean.txt'));
                 fnme = {d.name};
                 nSubjects_motion = numel(fnme); % number of subjects for whom motion data is available
-                subject_ID_motion = zeros(nSubjects_motion, 2); % matrix containing subject ID and relative RMS motion
+                subject_ID_motion = zeros(nSubjects_motion, 4); % matrix containing subject ID and relative RMS motion
                 
                 for i = 1:nSubjects_motion
                     currentMotionFileName = fnme{i};
                     k = strfind(currentMotionFileName, '_');
                     currentSubjectID = str2double(currentMotionFileName(1:k(1)-1)); % pulling out subject ID (numeric sequence before first '_')
-                    currentFilePath = strcat(folderPath, fnme{i});
+                    currentFilePath = strcat(path2MotionFiles, fnme{i});
                     currentMeanRelativeMotion = importdata(currentFilePath);
-                    subject_ID_motion(i, :) = [currentSubjectID currentMeanRelativeMotion];
+                    
+                    currentAgeString = subjectDemographics.Age{subjectDemographics.Subject == currentSubjectID};
+                    switch currentAgeString
+                        case '22-25'
+                            currentAge = (22+25)/2;
+                        case '26-30'
+                            currentAge = (26+30)/2;
+                        case '31-35'
+                            currentAge = (31+35)/2;
+                        case '36+'
+                            currentAge = 36;
+                    end
+                    
+                    currentGenderString = subjectDemographics.Gender{subjectDemographics.Subject == currentSubjectID};
+                    switch currentGenderString
+                        case 'F'
+                            currentGender = 1;
+                        case 'M'
+                            currentGender = 0;
+                    end
+                    
+                    subject_ID_motion(i, :) = [currentSubjectID currentMeanRelativeMotion currentAge currentGender];
                 end
                 
-                % read in adjacency matrices for each subject
-                folderPath = '../Data/FunctionalConnectivityMatrices/';
-                d = dir(strcat(folderPath, currentAtlasType, '_', '*', currentTaskType, '_', currentPipeline, '_', current_FC_method, '.mat'));
+                %% read in adjacency matrices for each subject
+                currentReadPath = strcat(path2FC_matrices, currentAtlasType, '*', currentRestingStateScan, '_', currentPipeline, '_', current_FC_method, '.mat');
+                d = dir(currentReadPath);
                 fnme = {d.name};
-                nSubjects_ts = numel(fnme); % number of subjects for whom functional connectivity is available
+                nSubjects_FC = numel(fnme); % number of subjects for whom functional connectivity is available
                 
-                motion_ew_allSubjects = {}; % main cell array with fields; {subjectID, meanRelativeMotion, edge weights} - one for each FC method
+                motion_edgeWeight_allSubjects = {}; % main cell array with fields; {subjectID, meanRelativeMotion, edge weights, age, gender} - one for each FC method
                 
-                for i = 1:nSubjects_ts
+                for i = 1:nSubjects_FC
                     currentFile = fnme{i};
                     k = strfind(currentFile(length(currentAtlasType)+1:end), '_'); k = k+length(currentAtlasType); % finding '_' characters, skipping atlas name
                     currentSubjectID = str2double(currentFile(k(1)+1:k(2)-1)); % pulling out subject ID (numeric sequence between first and second '_')
@@ -62,13 +103,13 @@ for fc = 1:numel(FC_methods)
                         continue;
                     else
                         currentMeanRelativeMotion = subject_ID_motion(subject_ID_motion(:, 1) == currentSubjectID, 2); % reading in motion data - relative mean RMS motion
+                        currentAge = subject_ID_motion(subject_ID_motion(:, 1) == currentSubjectID, 3);
+                        currentGender = subject_ID_motion(subject_ID_motion(:, 1) == currentSubjectID, 4);
                     end
                     
-                    currentFilePath = strcat(folderPath, filesep, currentFile); % reading in adjacency matrix, variable name 'AdjMat'
+                    currentFilePath = strcat(path2FC_matrices, filesep, currentFile); % reading in adjacency matrix, variable name 'AdjMat'
                     load(currentFilePath);
                     
-                    %AdjacencyMatrix(AdjacencyMatrix<0) = 0; % setting negative correlations to zero
-                    AdjMat = atanh(AdjMat); % Fisher z-transform
                     % converting upper triangular matrix to symmetric matrix
                     if istriu(AdjMat)
                         AdjMat = (AdjMat+AdjMat' - eye(size(AdjMat,1)).*diag(AdjMat));
@@ -77,40 +118,115 @@ for fc = 1:numel(FC_methods)
                     nNodes = size(AdjMat, 1);
                     edgeWeights = computeEdgeWeights(AdjMat); % computing edge weights
                     nEdges = size(edgeWeights, 2);
-                    motion_ew_allSubjects = [motion_ew_allSubjects; {currentSubjectID, currentMeanRelativeMotion, edgeWeights}];
+                    motion_edgeWeight_allSubjects = [motion_edgeWeight_allSubjects; {currentSubjectID, currentMeanRelativeMotion, edgeWeights, currentAge, currentGender}];
+                    
+                    motion_allScans{subjectDemographics.Subject == currentSubjectID, t+1} = currentMeanRelativeMotion;
+                    edgeWeights_allScans{subjectDemographics.Subject == currentSubjectID, t+1} = edgeWeights;
+                    
                 end
                 
-                % compute correlations between mean RMS motion and edge strengths
-                edgeMotionCorr = [];
-                edgeMotionCorr_significance = [];
+                nSubjects_completeData = size(motion_edgeWeight_allSubjects, 1); % number of subjects with motion and FC data
                 
-                nSubjects_completeData = size(motion_ew_allSubjects, 1);
+                %% compute average edge weights across subjects
+                averageEdgeWeights = zeros(size(motion_edgeWeight_allSubjects{1, 3}));
+                for i = nSubjects_completeData
+                    averageEdgeWeights = averageEdgeWeights + motion_edgeWeight_allSubjects{i, 3};
+                end
+                averageEdgeWeights = averageEdgeWeights/nSubjects_completeData;
+                
+                %% compute correlations between mean RMS motion and edge strengths
+                QCFC_correlations = [];
+                QCFC_correlations_significance = [];
+                QCFC_correlations_significance_absoluteValues = [];
+                QCFC_correlations_significance_zeroedOut = [];
+                
                 for e = 1:nEdges % loop over all edges
-                    ew = [];
+                    edgeWeights = [];
                     for i = 1:nSubjects_completeData
-                        ew = [ew; motion_ew_allSubjects{i, 3}(e)];
+                        edgeWeights = [edgeWeights; motion_edgeWeight_allSubjects{i, 3}(e)];
                     end
                     
-                    motion = cell2mat(motion_ew_allSubjects(:, 2));
+                    motion = cell2mat(motion_edgeWeight_allSubjects(:, 2));
+                    age = cell2mat(motion_edgeWeight_allSubjects(:, 4));
+                    gender = cell2mat(motion_edgeWeight_allSubjects(:, 5));
                     
-                    [rho, pValue] = corr(ew, motion, 'Rows', 'complete');
-                    edgeMotionCorr = [edgeMotionCorr rho];
-                    edgeMotionCorr_significance = [edgeMotionCorr_significance pValue];
+                    [rho, pValue] = partialcorr(edgeWeights, motion, [age gender], 'Rows', 'complete');
+                    QCFC_correlations = [QCFC_correlations rho];
+                    QCFC_correlations_significance = [QCFC_correlations_significance pValue];
+                    
+                    edgeWeights_absoluteValues = abs(edgeWeights);
+                    [~, pValue] = partialcorr(edgeWeights_absoluteValues, motion, [age gender], 'Rows', 'complete');
+                    QCFC_correlations_significance_absoluteValues = [QCFC_correlations_significance_absoluteValues pValue];
+                    
+                    edgeWeights_zeroedOut = edgeWeights;
+                    edgeWeights_zeroedOut(edgeWeights_zeroedOut<0) = 0;
+                    [~, pValue] = partialcorr(edgeWeights_zeroedOut, motion, [age gender], 'Rows', 'complete');
+                    QCFC_correlations_significance_zeroedOut = [QCFC_correlations_significance_zeroedOut pValue];
                 end
                 
-                % correct for multiple comparisons
-                FDR = mafdr(edgeMotionCorr_significance, 'BHFDR', true);
-                fractionSignificantEdges{1, p} = currentPipeline;
-                fractionSignificantEdges{2, p} = sum(FDR<0.05)/nEdges;
-                fractionSignificantEdges{3, p} = nSubjects_completeData;
-                medianAbsoluteCorrelation{1, p} = currentPipeline;
-                medianAbsoluteCorrelation{2, p} = median(abs(edgeMotionCorr(~isnan(edgeMotionCorr))));
-                medianAbsoluteCorrelation{3, p} = nSubjects_completeData;
-                medianAbsoluteCorrelation{4, p} = edgeMotionCorr;
+                % correction for multiple comparisons
+                FDR = mafdr(QCFC_correlations_significance, 'BHFDR', true);
+                
+                fractionSignificantEdges_FDR = sum(FDR<0.05)/numel(FDR);
+                fractionSignificantEdges_noFDR = sum(QCFC_correlations_significance<0.05)/numel(QCFC_correlations_significance);
+                fractionSignificantEdges_absoluteValues_noFDR = sum(QCFC_correlations_significance_absoluteValues<0.05)/numel(QCFC_correlations_significance_absoluteValues);
+                fractionSignificantEdges_zeroedOut_noFDR = sum(QCFC_correlations_significance_zeroedOut<0.05)/numel(QCFC_correlations_significance_zeroedOut);
+                subjectCovariates = [cell2mat(motion_edgeWeight_allSubjects(:, 1)), age, gender, motion];
+                
+                QCFC_parameters = {fractionSignificantEdges_FDR, fractionSignificantEdges_noFDR, ...
+                    fractionSignificantEdges_absoluteValues_noFDR, fractionSignificantEdges_zeroedOut_noFDR, ...
+                    QCFC_correlations, averageEdgeWeights, nSubjects_completeData, subjectCovariates};
+                
+                QCFC_parameters = cell2table(QCFC_parameters, 'VariableNames', {'fractionSignificantEdges_FDR', 'fractionSignificantEdges_noFDR', ...
+                    'fractionSignificantEdges_absoluteValues_noFDR', 'fractionSignificantEdges_zeroedOut_noFDR', ...
+                    'QCFC_correlations', 'averageEdgeWeights', 'nSubjects', 'subjectCovariates'});
+                save(strcat(saveResultsFolder, 'QCFC_parameters_', current_FC_method, '_', currentAtlasType, '_', currentRestingStateScan, '.mat'), 'QCFC_parameters');
             end
             
-            save(strcat(saveResultsFolder, 'fractionSignificantEdges_', current_FC_method, '_', currentAtlasType, '_', currentTaskType, '_allPipelines.mat'), 'fractionSignificantEdges');
-            save(strcat(saveResultsFolder, 'medianAbsoluteCorrelation_', current_FC_method, '_', currentAtlasType, '_', currentTaskType, '_allPipelines.mat'), 'medianAbsoluteCorrelation');
+            %% computing test-retest reliability
+            
+            nScans = 4;
+            % reducing data to subjects with all 4 scans
+            flag_all4Scans = ones(nSubjects_total, 1);
+            for i = 1:nSubjects_total
+                if isempty(edgeWeights_allScans{i, 2}) || isempty(edgeWeights_allScans{i, 3}) || isempty(edgeWeights_allScans{i, 4}) || isempty(edgeWeights_allScans{i, 5})
+                    flag_all4Scans(i) = 0;
+                end
+            end
+            idx_all4Scans = find(flag_all4Scans);
+            edgeWeights_allScans = edgeWeights_allScans(idx_all4Scans, :);
+            motion_allScans = motion_allScans(idx_all4Scans, :);
+            nSubjects_all4scans = size(edgeWeights_allScans, 1);
+            
+            % compute intra-class correlation for edge weights
+            ICC_allEdges = zeros(1, nEdges);
+            for e = 1:nEdges
+                % build a nSubjects x nScans matrix for each edge
+                TRT_matrix_edges = zeros(nSubjects_all4scans, nScans);
+                for i = 1:nSubjects_all4scans
+                    for j = 1:nScans
+                        TRT_matrix_edges(i, j) = edgeWeights_allScans{i, j+1}(e);
+                    end
+                end
+                
+                ICC = computeICC(TRT_matrix_edges);
+                ICC_allEdges(e) = ICC;                
+            end
+            
+            % compute intra-class correlation for subject motion
+            TRT_matrix_motion = zeros(nSubjects_all4scans, nScans);
+            for i = 1:nSubjects_all4scans
+                for j = 1:nScans
+                    TRT_matrix_motion(i, j) = motion_allScans{i, j+1};
+                end
+            end
+            
+            ICC_motion = computeICC(TRT_matrix_motion);
+            
+            TRT_parameters = {ICC_allEdges, ICC_motion, nSubjects_all4scans};
+            TRT_parameters = cell2table(TRT_parameters, 'VariableNames', {'ICC_allEdges', 'ICC_motion', 'nSubjects_all4scans'});
+            save(strcat(saveResultsFolder, 'TRT_parameters_', current_FC_method, '_', currentAtlasType, '.mat'), 'TRT_parameters');
+            
         end
     end
 end
