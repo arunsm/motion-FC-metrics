@@ -3,8 +3,8 @@
 
 %% set parameters
 
-preprocessingVariants = {'gsr_filter', 'gsr_nofilter', 'nogsr_filter', 'nogsr_nofilter'};
-FC_methods = {'Pearson', 'PartialCorrelation', 'Spearman', 'Coherence', 'WaveletCoherence', 'MutualInformation', 'MutualInformationTime'};
+preprocessingVariants = {'gsr_filter'};
+FC_methods = {'Pearson_ztransform', 'PartialCorrelation_ztransform', 'Spearman_ztransform'};
 atlasTypes = {'gordon', 'yeo_100'};
 restingStateScans = {'REST1_LR', 'REST1_RL','REST2_LR', 'REST2_RL'};
 
@@ -14,6 +14,7 @@ nSubjects_total = numel(subjectDemographics.Subject);
 %% looping through all preprocessing variants, FC methods, atlases and scans
 for p = 1:numel(preprocessingVariants)
     currentPreprocessingVariant = preprocessingVariants{p};
+    fprintf(currentPreprocessingVariant); fprintf('\n')
     
     saveResultsFolder = strcat('Results/', date, filesep, currentPreprocessingVariant, filesep);
     if ~exist(saveResultsFolder)
@@ -87,7 +88,7 @@ for p = 1:numel(preprocessingVariants)
                 end
                 
                 %% read in adjacency matrices for each subject
-                currentReadPath = strcat(path2FC_matrices, currentAtlasType, '*', currentRestingStateScan, '_', currentPipeline, '_', current_FC_method, '.mat');
+                currentReadPath = strcat(path2FC_matrices, currentAtlasType, '*', currentRestingStateScan, '_', currentPipeline, '_', strrep(current_FC_method, '_ztransform', ''), '.mat');
                 d = dir(currentReadPath);
                 fnme = {d.name};
                 nSubjects_FC = numel(fnme); % number of subjects for whom functional connectivity is available
@@ -108,8 +109,10 @@ for p = 1:numel(preprocessingVariants)
                     end
                     
                     currentFilePath = strcat(path2FC_matrices, filesep, currentFile); % reading in adjacency matrix, variable name 'AdjMat'
-                    load(currentFilePath);
+                    load(currentFilePath, 'AdjMat');
                     
+                    AdjMat = atanh(AdjMat); % applying Fisher z-transform (implement only for correlation based metrics)
+                        
                     % converting upper triangular matrix to symmetric matrix
                     if istriu(AdjMat)
                         AdjMat = (AdjMat+AdjMat' - eye(size(AdjMat,1)).*diag(AdjMat));
@@ -129,7 +132,7 @@ for p = 1:numel(preprocessingVariants)
                 
                 %% compute average edge weights across subjects
                 averageEdgeWeights = zeros(size(motion_edgeWeight_allSubjects{1, 3}));
-                for i = nSubjects_completeData
+                for i = 1:nSubjects_completeData
                     averageEdgeWeights = averageEdgeWeights + motion_edgeWeight_allSubjects{i, 3};
                 end
                 averageEdgeWeights = averageEdgeWeights/nSubjects_completeData;
