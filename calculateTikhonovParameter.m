@@ -6,15 +6,18 @@
 % "Optimising network modelling methods for fMRI." NeuroImage 211 (2020): 116604.
 
 %% set parameters
+
+addpath(genpath('/cbica/home/mahadeva/matlab/npy-matlab-master'));
+
 tr = 0.72; % relaxation time in seconds
 f1 = 0.009; % lower range for frequency domain connectivity metrics (in Hz)
 f2 = 0.08; % upper range for frequency domain connectivity metrics (in Hz)
 
 taskTypes = {'REST1_LR', 'REST1_RL', 'REST2_LR', 'REST2_RL'};
-atlasTypes = {'gordon', 'yeo'};
-alphaValues = [1, 5, 10, 50, 100];
+atlasTypes = {'gordon', 'yeo_100'};
+alphaValues = [0.5, 1, 2, 5, 10, 50, 100, 200];
 
-resultsDir = '/cbica/home/mahadeva/motion-FC-metrics/data/FunctionalConnectivityMatrices_gsr_filter/';
+resultsDir = '/cbica/home/mahadeva/motion-FC-metrics/code/Results/regularizationParameterOptimization/gsr_filter/';
 
 resultsFile = strcat(resultsDir, 'optimal_regularization_parameters.csv');
 fid = fopen(resultsFile, 'a');
@@ -42,8 +45,9 @@ for t = 1:numel(taskTypes)
         root_mean_square_distance = zeros(size(alphaValues));
         for i = 1:numel(alphaValues)
             alphai = alphaValues(i);
+            fprintf('alpha = %.1f\n', alphai);
             
-            for s = 1:numel(subjectsList)
+            for s = 1:nSubjects
                 currentSubjectID = subjectsList(s);
                 
                 precision_matrices_regularized = zeros(nParcels, nParcels, nSubjects);
@@ -58,11 +62,11 @@ for t = 1:numel(taskTypes)
                     
                     % calculate regularized and unregularized precision
                     % matrices
-                    precision_matrices_regularized(:, :, s) = inv(cov(timeSeriesData + alphai*eye(nParcels)));
+                    precision_matrices_regularized(:, :, s) = inv(cov(timeSeriesData) + alphai*eye(nParcels));
                     precision_matrices_unregularized(:, :, s) = inv(cov(timeSeriesData));
                     
                 else
-                    fprintf('Time series data for subject %d not available\n', subjectID);
+                    fprintf('Time series data for subject %d not available\n', currentSubjectID);
                 end
                 
                 % calculate root mean square distance between regularized and
