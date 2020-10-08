@@ -4,7 +4,7 @@ switch FC_method
     case "Pearson"
         AdjacencyMatrix = FC_pearson(timeSeries); % Pearson correlations among time series
     case "PartialCorrelation"
-	AdjacencyMatrix = FC_partialCorr(timeSeries); % partial correlations among time series
+        AdjacencyMatrix = FC_partialCorr(timeSeries); % partial correlations among time series
     case "Spearman"
         AdjacencyMatrix = FC_spearman(timeSeries); % Spearman correlations among time series
     case "MutualInformationTime"

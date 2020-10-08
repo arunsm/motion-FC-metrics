@@ -69,7 +69,7 @@ for t = 1:numel(taskTypes)
                     timeSeriesData = readNPY(currentFilePath)';
                     
                     % filtering data
-                    timeSeriesData = bandpass_filter_butterworth(timeSeriesData, tr, f1, f2); 
+                    timeSeriesData = bandpass_filter_butterworth(timeSeriesData, tr, f1, f2);
                     
                     fprintf('Computing functional connectivity for subject %d, parcellation %s, preprocessing pipeline %s, using %s\n', subjectID, atlasType, currentPipeline, currentFCmethod)
                     AdjMat = computeFunctionalConnectivity(timeSeriesData, currentFCmethod, f1, f2, tr);
