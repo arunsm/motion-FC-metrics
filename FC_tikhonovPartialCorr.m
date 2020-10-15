@@ -10,17 +10,11 @@ function A = FC_tikhonovPartialCorr(t, alpha)
         pause(30);
     end
 
-    nBrainRegions = size(t, 2);
+    nParcels = size(t, 2);
     C = cov(t); % covariance matrix
-    P = -inv(C + alpha*eye(nBrainRegions)); % precision matrix after regularization
-    A = (P ./ repmat(sqrt(abs(diag(P))), 1, nBrainRegions)) ./ repmat(sqrt(abs(diag(P)))', nBrainRegions, 1); % normalization
+    P = -inv(C + alpha*eye(nParcels)); % precision matrix after regularization
+    A = (P ./ repmat(sqrt(abs(diag(P))), 1, nParcels)) ./ repmat(sqrt(abs(diag(P)))', nParcels, 1); % normalization
 
     % setting diagonal elements to zero
-    for j = 1:size(A, 1)
-        for k = j:size(A, 2)
-            if j == k
-                A(j, k) = 0;
-            end
-        end
-    end
+    A = A - (diag(diag(A)));
 end

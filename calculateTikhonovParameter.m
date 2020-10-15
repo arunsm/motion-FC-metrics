@@ -38,7 +38,7 @@ for t = 1:numel(taskTypes)
         switch currentAtlasType
             case 'gordon'
                 nParcels = 333;
-            case 'yeo'
+            case 'yeo_100'
                 nParcels = 100;
         end
         
@@ -47,12 +47,11 @@ for t = 1:numel(taskTypes)
             alphai = alphaValues(i);
             fprintf('alpha = %.1f\n', alphai);
             
+            precision_matrices_regularized = zeros(nParcels, nParcels, nSubjects);
+            precision_matrices_unregularized = zeros(nParcels, nParcels, nSubjects);
+            
             for s = 1:nSubjects
                 currentSubjectID = subjectsList(s);
-                
-                precision_matrices_regularized = zeros(nParcels, nParcels, nSubjects);
-                precision_matrices_unregularized = zeros(nParcels, nParcels, nSubjects);
-                
                 currentFilePath = strcat('/cbica/home/mahadeva/motion-FC-metrics/data/ICAFIX_matrices_nobp/ts/', currentAtlasType, '_', num2str(currentSubjectID), '_', currentTaskType, '_gsr.npy');
                 if exist(currentFilePath, 'file')
                     timeSeriesData = readNPY(currentFilePath)';

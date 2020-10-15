@@ -11,12 +11,7 @@ function A = FC_partialCorr(t)
     end
 
     A = partialcorr(t);
+    
     % setting diagonal elements to zero
-    for j = 1:size(A, 1)
-        for k = j:size(A, 2)
-            if j == k
-                A(j, k) = 0;
-            end
-        end
-    end
+    A = A - (diag(diag(A)));
 end

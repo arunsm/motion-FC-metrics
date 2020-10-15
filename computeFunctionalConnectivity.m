@@ -1,12 +1,14 @@
-function AdjacencyMatrix = computeFunctionalConnectivity(timeSeries, FC_method, f1, f2, tr)
+function AdjacencyMatrix = computeFunctionalConnectivity(timeSeries, FC_method, f1, f2, tr, alpha)
 
 switch FC_method
     case "Pearson"
         AdjacencyMatrix = FC_pearson(timeSeries); % Pearson correlations among time series
-    case "PartialCorrelation"
-        AdjacencyMatrix = FC_partialCorr(timeSeries); % partial correlations among time series
     case "Spearman"
         AdjacencyMatrix = FC_spearman(timeSeries); % Spearman correlations among time series
+    case "PartialCorrelation"
+        AdjacencyMatrix = FC_partialCorr(timeSeries); % partial correlations among time series
+    case "TikhonovPartialCorrelation"
+        AdjacencyMatrix = FC_tikhonovPartialCorr(timeSeries, alpha); % Tikhonov (L2-regularized) partial correlations among time series
     case "MutualInformationTime"
         AdjacencyMatrix = FC_mutualInformationTime(timeSeries); % mutual information in time domain
     case "Coherence"

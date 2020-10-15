@@ -10,7 +10,7 @@ readarray ARRAY < ../data/subjectsList_incomplete.csv
 LENGTH=${#ARRAY[@]}
 echo Total number of subjects: $LENGTH
 
-#$ -t 1-2
+#$ -t 1-828
 #$ -j y
 #$ -l h_vmem=6.1G,s_vmem=6.0G
 

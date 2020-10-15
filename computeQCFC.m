@@ -3,8 +3,8 @@
 
 %% set parameters
 
-preprocessingVariants = {'gsr_filter'};
-FC_methods = {'Pearson_ztransform', 'PartialCorrelation_ztransform', 'Spearman_ztransform'};
+preprocessingVariants = {'gsr_filter', 'gsr_nofilter', 'nogsr_filter', 'nogsr_nofilter'};
+FC_methods = {'TikhonovPartialCorrelation'};
 atlasTypes = {'gordon', 'yeo_100'};
 restingStateScans = {'REST1_LR', 'REST1_RL','REST2_LR', 'REST2_RL'};
 
@@ -24,11 +24,13 @@ for p = 1:numel(preprocessingVariants)
     path2FC_matrices = strcat('../data/FunctionalConnectivityMatrices_', currentPreprocessingVariant, filesep);
     
     % computing QC-FC only for ICA_FIX pipeline
-    if strcmp(currentPreprocessingVariant, 'gsr_filter')
-        currentPipeline = 'FIX_matrices';
-    else
-        currentPipeline = 'ts';
-    end
+%     if strcmp(currentPreprocessingVariant, 'gsr_filter')
+%         currentPipeline = 'FIX_matrices';
+%     else
+%         currentPipeline = 'ts';
+%     end
+    
+    currentPipeline = 'ts';
     
     for fc = 1:numel(FC_methods)
         current_FC_method = FC_methods{fc};
@@ -40,7 +42,7 @@ for p = 1:numel(preprocessingVariants)
             
             TRT_parameters = {}; % cell array with test-retest reliability parameters
             edgeWeights_allScans = cell(nSubjects_total, 5); % cell array of edge weights for all scans
-            motion_allScans = cell(nSubjects_total, 5); % cell array of edge weights for all scans
+            motion_allScans = cell(nSubjects_total, 5); % cell array of motion for all scans
             edgeWeights_allScans(:, 1) = num2cell(subjectDemographics.Subject);
             motion_allScans(:, 1) = num2cell(subjectDemographics.Subject);
             
@@ -139,7 +141,9 @@ for p = 1:numel(preprocessingVariants)
                 
                 %% compute correlations between mean RMS motion and edge strengths
                 QCFC_correlations = [];
+                QCFC_correlations_noCorrections = [];
                 QCFC_correlations_significance = [];
+                QCFC_correlations_significance_noCorrections = [];
                 QCFC_correlations_significance_absoluteValues = [];
                 QCFC_correlations_significance_zeroedOut = [];
                 
@@ -153,6 +157,10 @@ for p = 1:numel(preprocessingVariants)
                     age = cell2mat(motion_edgeWeight_allSubjects(:, 4));
                     gender = cell2mat(motion_edgeWeight_allSubjects(:, 5));
                     
+                    [rho, pValue] = corr(edgeWeights, motion, 'Rows', 'complete');
+                    QCFC_correlations_noCorrections = [QCFC_correlations_noCorrections rho];
+                    QCFC_correlations_significance_noCorrections = [QCFC_correlations_significance_noCorrections pValue];
+                                        
                     [rho, pValue] = partialcorr(edgeWeights, motion, [age gender], 'Rows', 'complete');
                     QCFC_correlations = [QCFC_correlations rho];
                     QCFC_correlations_significance = [QCFC_correlations_significance pValue];
@@ -172,17 +180,19 @@ for p = 1:numel(preprocessingVariants)
                 
                 fractionSignificantEdges_FDR = sum(FDR<0.05)/numel(FDR);
                 fractionSignificantEdges_noFDR = sum(QCFC_correlations_significance<0.05)/numel(QCFC_correlations_significance);
+                fractionSignificantEdges_noCorrections_noFDR = sum(QCFC_correlations_significance_noCorrections<0.05)/numel(QCFC_correlations_significance_noCorrections);
                 fractionSignificantEdges_absoluteValues_noFDR = sum(QCFC_correlations_significance_absoluteValues<0.05)/numel(QCFC_correlations_significance_absoluteValues);
                 fractionSignificantEdges_zeroedOut_noFDR = sum(QCFC_correlations_significance_zeroedOut<0.05)/numel(QCFC_correlations_significance_zeroedOut);
                 subjectCovariates = [cell2mat(motion_edgeWeight_allSubjects(:, 1)), age, gender, motion];
                 
                 QCFC_parameters = {fractionSignificantEdges_FDR, fractionSignificantEdges_noFDR, ...
-                    fractionSignificantEdges_absoluteValues_noFDR, fractionSignificantEdges_zeroedOut_noFDR, ...
-                    QCFC_correlations, averageEdgeWeights, nSubjects_completeData, subjectCovariates};
+                    fractionSignificantEdges_noCorrections_noFDR, fractionSignificantEdges_absoluteValues_noFDR, ...
+                    fractionSignificantEdges_zeroedOut_noFDR, QCFC_correlations, QCFC_correlations_noCorrections, ...
+                    averageEdgeWeights, nSubjects_completeData, subjectCovariates};
                 
                 QCFC_parameters = cell2table(QCFC_parameters, 'VariableNames', {'fractionSignificantEdges_FDR', 'fractionSignificantEdges_noFDR', ...
-                    'fractionSignificantEdges_absoluteValues_noFDR', 'fractionSignificantEdges_zeroedOut_noFDR', ...
-                    'QCFC_correlations', 'averageEdgeWeights', 'nSubjects', 'subjectCovariates'});
+                    'fractionSignificantEdges_noCorrections_noFDR', 'fractionSignificantEdges_absoluteValues_noFDR', 'fractionSignificantEdges_zeroedOut_noFDR', ...
+                    'QCFC_correlations', 'QCFC_correlations_noCorrections', 'averageEdgeWeights', 'nSubjects', 'subjectCovariates'});
                 save(strcat(saveResultsFolder, 'QCFC_parameters_', current_FC_method, '_', currentAtlasType, '_', currentRestingStateScan, '.mat'), 'QCFC_parameters');
             end
             
@@ -200,6 +210,25 @@ for p = 1:numel(preprocessingVariants)
             edgeWeights_allScans = edgeWeights_allScans(idx_all4Scans, :);
             motion_allScans = motion_allScans(idx_all4Scans, :);
             nSubjects_all4scans = size(edgeWeights_allScans, 1);
+             
+            % compute fingerprinting accuracy for all combinations of scans      
+            fingerprintingAccuracy = zeros(1, 12); % 12 combinations of target and database from 4 resting state scans
+            ctr = 1;
+            for t = 1:nScans
+                targetEdgeWeights = edgeWeights_allScans(:, t);
+                for d = 1:nScans
+                    if t ~= d
+                        databaseEdgeWeights = edgeWeights_allScans(:, d);
+                        idx_match = zeros(1, nSubjects_all4scans);
+                        for i = 1:nSubjects_all4scans
+                            currentTargetEdgeWeights = targetEdgeWeights{i};
+                            idx_match(i) = calculateFingerprintAccuracy(databaseEdgeWeights, currentTargetEdgeWeights, i);
+                        end
+                        fingerprintingAccuracy(ctr) = sum(idx_match)/nSubjects_all4scans;
+                        ctr = ctr + 1;
+                    end
+                end
+            end
             
             % compute intra-class correlation for edge weights
             ICC_allEdges = zeros(1, nEdges);
@@ -226,8 +255,8 @@ for p = 1:numel(preprocessingVariants)
             
             ICC_motion = computeICC(TRT_matrix_motion);
             
-            TRT_parameters = {ICC_allEdges, ICC_motion, nSubjects_all4scans};
-            TRT_parameters = cell2table(TRT_parameters, 'VariableNames', {'ICC_allEdges', 'ICC_motion', 'nSubjects_all4scans'});
+            TRT_parameters = {fingerprintingAccuracy, ICC_allEdges, ICC_motion, nSubjects_all4scans};
+            TRT_parameters = cell2table(TRT_parameters, 'VariableNames', {'fingerprintingAccuracy', 'ICC_allEdges', 'ICC_motion', 'nSubjects_all4scans'});
             save(strcat(saveResultsFolder, 'TRT_parameters_', current_FC_method, '_', currentAtlasType, '.mat'), 'TRT_parameters');
             
         end

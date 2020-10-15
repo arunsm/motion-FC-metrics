@@ -30,13 +30,14 @@ addpath(genpath('/cbica/home/mahadeva/matlab/npy-matlab-master'));
 tr = 0.72; % relaxation time in seconds
 f1 = 0.009; % lower range for frequency domain connectivity metrics (in Hz)
 f2 = 0.08; % upper range for frequency domain connectivity metrics (in Hz)
+alpha = 0.5; % regularization parameter for Tikhonov partial correlation
 
-FC_methods = {'Pearson', 'PartialCorrelation', 'Spearman', 'Coherence', 'WaveletCoherence', 'MutualInformation', 'MutualInformationTime'};
-%FC_methods = {'MutualInformationTime'};
+%FC_methods = {'Pearson', 'Spearman', 'PartialCorrelation', 'TikhonovPartialCorrelation', 'Coherence', 'WaveletCoherence', 'MutualInformation', 'MutualInformationTime'};
+FC_methods = {'TikhonovPartialCorrelation'};
 motionCorrectionMethods = {'ts'};
 nPipelines = numel(motionCorrectionMethods);
 atlasType = 'yeo_100';
-resultsFolder = '../data/FunctionalConnectivityMatrices_nogsr_filter';
+resultsFolder = '/cbica/home/mahadeva/motion-FC-metrics/data/FunctionalConnectivityMatrices_gsr_nofilter';
 if ~exist(resultsFolder, 'dir')
     mkdir(resultsFolder)
 end
@@ -58,7 +59,7 @@ for t = 1:numel(taskTypes)
         fprintf(currentFCmethod); fprintf('\n')
         for p= 1:nPipelines
             currentPipeline = motionCorrectionMethods{p};
-            currentFilePath = strcat('/cbica/home/mahadeva/motion-FC-metrics/data/ICAFIX_matrices_nobp/', currentPipeline, filesep, atlasType, '_', num2str(subjectID), '_', taskType, '_nogsr.npy');
+            currentFilePath = strcat('/cbica/home/mahadeva/motion-FC-metrics/data/ICAFIX_matrices_nobp/', currentPipeline, filesep, atlasType, '_', num2str(subjectID), '_', taskType, '_gsr.npy');
             if exist(currentFilePath, 'file')
                 savePath = strcat(resultsFolder, filesep, atlasType, '_', num2str(subjectID), '_', taskType, '_', currentPipeline, '_', currentFCmethod, '.mat');
                 if exist(savePath, 'file')
@@ -68,10 +69,10 @@ for t = 1:numel(taskTypes)
                     timeSeriesData = readNPY(currentFilePath)';
                     
                     % filtering data
-                    timeSeriesData = bandpass_filter_butterworth(timeSeriesData, tr, f1, f2); 
+                    %timeSeriesData = bandpass_filter_butterworth(timeSeriesData, tr, f1, f2);
                     
                     fprintf('Computing functional connectivity for subject %d, parcellation %s, preprocessing pipeline %s, using %s\n', subjectID, atlasType, currentPipeline, currentFCmethod)
-                    AdjMat = computeFunctionalConnectivity(timeSeriesData, currentFCmethod, f1, f2, tr);
+                    AdjMat = computeFunctionalConnectivity(timeSeriesData, currentFCmethod, f1, f2, tr, alpha);
                     save(savePath, 'AdjMat');
                 end
             else
