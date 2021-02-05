@@ -32,8 +32,8 @@ library(R.matlab)
 ```{r load data, include=FALSE}
 subj_dir="~/Documents/projects/in_progress/arun_fc_metrics_motion/"
 dropbox_data="~/Dropbox/projects/in_progress/arun_fc_metrics_motion/output/data/Schaefer100_ICA_FIX/"
-cbica_data="/cbica/home/tooleyu/arun_fc_metrics_motion/output/Schaefer_100_ICA_FIX/"
-pipeline="nogsr_filter"
+cbica_data="/cbica/home/tooleyu/projects/in_progress/arun_fc_metrics_motion/output/Schaefer_100_ICA_FIX/"
+pipeline="nogsr_nofilter"
 data_dir=paste0(cbica_data,pipeline)
 run1_data=read.csv(paste0(data_dir, "/modularity_yeo_100__REST1_LR_071120.csv"))
 run2_data=read.csv(paste0(data_dir, "/modularity_yeo_100__REST1_RL_071120.csv"))
@@ -42,6 +42,11 @@ run4_data=read.csv(paste0(data_dir, "/modularity_yeo_100__REST2_RL_071120.csv"))
 subject_list=read.csv(paste0(subj_dir, "data/subjLists/S1200_Release_Subjects_Demographics.csv"))
 subject_list <- subject_list %>% dplyr::select(.,Subject:Age) %>% rename(., subject=Subject)
 
+#add Spearman and Tikhonov data
+run1_newmets <- read.csv(paste0(cbica_data,pipeline,"/new_metrics_modularity_schaefer__REST1_LR_020221.csv")) 
+run2_newmets <- read.csv(paste0(cbica_data,pipeline,"/new_metrics_modularity_schaefer__REST1_RL_020221.csv")) 
+run3_newmets <- read.csv(paste0(cbica_data,pipeline,"/new_metrics_modularity_schaefer__REST2_LR_020221.csv")) 
+run4_newmets <- read.csv(paste0(cbica_data,pipeline,"/new_metrics_modularity_schaefer__REST2_RL_020221.csv")) 
 ```
 
 ## Merge data together
@@ -51,6 +56,7 @@ mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Mot
 motiondata1 <- read.csv(paste0(mydir,"/rfMRI_REST1_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
 modul_data1 <- data.frame(subject_list, run1_data)
 alldata1 <- merge(modul_data1, motiondata1, by = "subject", all = TRUE)
+alldata1 <- cbind(alldata1, run1_newmets)
 alldata1 <- alldata1 %>% filter(.,avgweight_Pearson != 0) #802 subjects -> 778 subjects
 #recode age to be the median of the bins that are provided
 alldata1$Age_numeric <- dplyr::recode(alldata1$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
@@ -59,6 +65,7 @@ mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Mot
 motiondata2 <- read.csv(paste0(mydir,"/rfMRI_REST1_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
 modul_data2 <- data.frame(subject_list, run2_data)
 alldata2 <- merge(modul_data2, motiondata2, by = "subject", all = TRUE)
+alldata2 <- cbind(alldata2, run2_newmets)
 alldata2 <- alldata2 %>% filter(.,avgweight_Pearson != 0) #xxx subjects -> 800 subjects
 #recode age to be the median of the bins that are provided
 alldata2$Age_numeric <- dplyr::recode(alldata2$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
@@ -67,6 +74,7 @@ mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Mot
 motiondata3 <- read.csv(paste0(mydir,"/rfMRI_REST2_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
 modul_data3 <- data.frame(subject_list, run3_data)
 alldata3 <- merge(modul_data3, motiondata3, by = "subject", all = TRUE)
+alldata3 <- cbind(alldata3, run3_newmets)
 alldata3 <- alldata3 %>% filter(.,avgweight_Pearson != 0) #xxx subjects -> 776 subjects
 alldata3 <- na.omit(alldata3)
 #recode age to be the median of the bins that are provided
@@ -76,6 +84,7 @@ mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Mot
 motiondata4 <- read.csv(paste0(mydir,"/rfMRI_REST2_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
 modul_data4 <- data.frame(subject_list, run4_data)
 alldata4 <- merge(modul_data4, motiondata4, by = "subject", all = TRUE)
+alldata4 <- cbind(alldata4, run4_newmets)
 alldata4 <- alldata4 %>% filter(.,avgweight_Pearson != 0) #xxx subjects -> 763 subjects
 alldata4 <- na.omit(alldata4)
 #recode age to be the median of the bins that are provided
@@ -86,12 +95,12 @@ alldata4$Gender_numeric <- recode(alldata4$Gender, "M"=1, "F" = 2)
 ## Just plot raw modularity across metrics
 
 ```{r plot of raw modularity across different metrics}
-metrics=c("Pearson", "PartialCorrelation", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime")
+metrics=c("Pearson", "Spearman", "PartialCorrelation", "TikhonovPartialCorrelation", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime")
 #calculate the relationship between raw modularity and motion for each of the 4 runs
 for (i in 1:4){
   assign("data",get(paste0("alldata",i)))
   mean_modul=numeric(6)
-   for (l in 1:6){
+   for (l in 1:8){
     assign("metric", metrics[l])
     temp <- data %>% dplyr::select(.,matches(paste0("^modul_",metric,"$")))
     # print(colnames(temp))
@@ -104,7 +113,7 @@ for (i in 1:4){
 #beeswarm plot
 #Melt them together
 all <- cbind(mean_modul_estimate_run1, mean_modul_estimate_run2, mean_modul_estimate_run3, mean_modul_estimate_run4)
-all$metrics <- factor(metrics, levels=c("Pearson", "PartialCorrelation", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime"), labels=c("P", "PC", "MIT", "C","WC", "MIF") )
+all$metrics <- factor(all$metrics, levels=c("Pearson", "Spearman", "PartialCorrelation","TikhonovPartialCorrelation", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime"), labels=c("P", "S","PC", "TC", "C","WC", "MIF", "MIT") )
 colnames(all) <- c("estimate1", "metrics", "estimate2","metrics", "estimate3", "metrics","estimate4", "metrics")
 all <- melt(all, id.vars = "metrics")
 #Plot them like Arun, using his colors
@@ -112,19 +121,19 @@ p<-ggplot(all, aes(x=metrics, y=value, color=metrics)) +
   geom_jitter(position=position_jitter(0.2), cex=3)
 p + theme_classic() + stat_summary(fun.data="mean_sdl",fun.args = list(mult = 1) ,
                  geom="pointrange", shape=95, cex=1) + labs(title=paste0("100-node Yeo parcellation ", pipeline),x="", y = "Modularity quality index (Q)")+ theme(plot.title = element_text(hjust = 0.5), legend.position = "none")+ theme(axis.text=element_text(size=14),
-        axis.title=element_text(size=14)) +scale_color_manual(values=c("#0072BD", "#D95319", "#EDB120", "#7E2F8E", "#77AC30", "#4DBEEE"))
+        axis.title=element_text(size=14)) +scale_color_manual(values=c("#0072BD", '#006432','#EB008B',"#D95319", "#EDB120", "#7E2F8E", "#77AC30", "#4DBEEE"))
 ```
 
 ## Modularity and motion, controlling for age and sex (as numeric) and avg weight
 ```{r controlling for avgweight and covariates modul, echo=TRUE}
-metrics=c("Pearson", "PartialCorrelation", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime")
+metrics=c("Pearson", "Spearman", "PartialCorrelation", "TikhonovPartialCorrelation", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime")
 #calculate the relationship between modularity and motion controlling for avg weight
 for (i in 1:4){
   assign("data",get(paste0("alldata",i)))
   pcorr_modul_estimate=numeric(6)
-  for (l in 1:6){
+  for (l in 1:8){
     assign("metric", metrics[l])
-    temp <- data %>% dplyr::select(.,matches(paste0("_",metric,"$")),matches("motion"), matches("Age_numeric"),matches("Gender_numeric"))
+    temp <- data %>% dplyr::select(.,matches(paste0("avgweight_",metric,"$")),matches(paste0("modul_",metric,"$")),matches("motion"), matches("Age_numeric"),matches("Gender_numeric"))
     print(colnames(temp))
     temp2 <- cbind(temp[1], temp$Age_numeric, temp$Gender_numeric)
     pcorr_modul_estimate[l] <- as.numeric(pcor.test(temp[2], temp$motion, temp2, method = "pearson")$estimate)
@@ -132,13 +141,9 @@ for (i in 1:4){
   assign(paste0("pcorr_modul_estimate_run",i),data.frame(pcorr_modul_estimate, metrics))
 }
 
-#average them together
-averaged_pcormotion_allcovariates_acrossruns <-(pcorr_modul_estimate_run1$pcorr_modul_estimate+pcorr_modul_estimate_run2$pcorr_modul_estimate+pcorr_modul_estimate_run3$pcorr_modul_estimate+pcorr_modul_estimate_run4$pcorr_modul_estimate)/4
-averaged_pcormotion_allcovariates_acrossruns <- as.data.frame(averaged_pcormotion_allcovariates_acrossruns)
-averaged_pcormotion_allcovariates_acrossruns$names <- metrics
-#melt them all together
+#melt them together
 all <- cbind(pcorr_modul_estimate_run1, pcorr_modul_estimate_run2, pcorr_modul_estimate_run3, pcorr_modul_estimate_run4)
-all$metrics <- factor(all$metrics, levels=c("Pearson", "PartialCorrelation", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime"), labels=c("P", "PC", "MIT", "C","WC", "MIF") )
+all$metrics <- factor(all$metrics, levels=c("Pearson", "Spearman", "PartialCorrelation","TikhonovPartialCorrelation", "Coherence", "WaveletCoherence", "MutualInformation","MutualInformationTime"), labels=c("P", "S","PC", "TC", "C","WC", "MIF", "MIT") )
 colnames(all) <- c("estimate1", "metrics", "estimate2","metrics", "estimate3", "metrics","estimate4", "metrics")
 all <- melt(all, id.vars = "metrics")
 
@@ -147,6 +152,6 @@ p<-ggplot(all, aes(x=metrics, y=value, color=metrics)) +
   geom_jitter(position=position_jitter(0), cex=2.5)
 p + theme_classic() + stat_summary(fun.data="mean_sdl",fun.args = list(mult = 1) ,
                  geom="pointrange", shape=95, cex=1) + labs(title=paste0("100-node Yeo parcellation ", pipeline),x="", y = "Partial correlation of Q with motion")+ theme(plot.title = element_text(hjust = 0.5), legend.position = "none")+ theme(axis.text=element_text(size=14),
-        axis.title=element_text(size=14)) +scale_color_manual(values=c("#0072BD", "#D95319", "#EDB120", "#7E2F8E", "#77AC30", "#4DBEEE"))+geom_hline(yintercept = 0)
+        axis.title=element_text(size=14)) +scale_color_manual(values=c("#0072BD", '#006432','#EB008B',"#D95319", "#EDB120", "#7E2F8E", "#77AC30", "#4DBEEE"))+geom_hline(yintercept = 0)
 ```
 
