@@ -22,13 +22,7 @@ for p = 1:numel(preprocessingVariants)
     end
     
     path2FC_matrices = strcat('../data/FunctionalConnectivityMatrices_', currentPreprocessingVariant, filesep);
-    
-    % computing QC-FC only for ICA_FIX pipeline
-    if strcmp(currentPreprocessingVariant, 'gsr_filter')
-        currentPipeline = 'FIX_matrices';
-    else
-        currentPipeline = 'ts';
-    end
+    currentPipeline = 'FIX_matrices'; % computing QC-FC only for ICA_FIX pipeline
     
     for fc = 1:numel(FC_methods)
         current_FC_method = FC_methods{fc};
