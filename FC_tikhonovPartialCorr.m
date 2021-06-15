@@ -9,6 +9,11 @@ function A = FC_tikhonovPartialCorr(t, alpha)
     while (~license('checkout', 'Statistics_Toolbox'))
         pause(30);
     end
+    
+    % pause processing until signal toolbox is available
+    while (~license('checkout', 'Signal_Toolbox'))
+	pause(30);
+    end
 
     nParcels = size(t, 2);
     C = cov(t); % covariance matrix
