@@ -1,5 +1,11 @@
 function filteredData = bandpass_filter_butterworth(inputData, tr, f1, f2)
-    filterOrder = 5;    
+    
+    % pause processing until signal toolbox is available
+    while (~license('checkout', 'Signal_Toolbox'))
+	pause(30);
+    end
+    
+    filterOrder = 5;
     fs = 1/tr; % sampling rate in Hz
     nyq = 0.5*fs; % Nyquist frequency
     lowpass = f1/nyq;
