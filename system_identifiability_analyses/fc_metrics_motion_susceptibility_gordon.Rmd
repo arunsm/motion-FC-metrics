@@ -50,6 +50,11 @@ run1_newmets <- read.csv(paste0(cbica_data,"gsr_filter/new_metrics_modularity_go
 run2_newmets <- read.csv(paste0(cbica_data,"gsr_filter/new_metrics_modularity_gordon__REST1_RL_012821.csv")) 
 run3_newmets <- read.csv(paste0(cbica_data,"gsr_filter/new_metrics_modularity_gordon__REST2_LR_012821.csv")) 
 run4_newmets <- read.csv(paste0(cbica_data,"gsr_filter/new_metrics_modularity_gordon__REST2_RL_012821.csv")) 
+#add new Tikhonov metrics
+run1_tikhonov <- read.csv(paste0(cbica_data,"gsr_filter/Tikhonov_new_modularity_gordon__REST1_LR_061521.csv")) 
+run2_tikhonov <- read.csv(paste0(cbica_data,"gsr_filter/Tikhonov_new_modularity_gordon__REST1_RL_061521.csv")) 
+run3_tikhonov <- read.csv(paste0(cbica_data,"gsr_filter/Tikhonov_new_modularity_gordon__REST2_LR_061521.csv")) 
+run4_tikhonov <- read.csv(paste0(cbica_data,"gsr_filter/Tikhonov_new_modularity_gordon__REST2_RL_061521.csv")) 
 ```
 
 ## Do partial correlations for each run and average them together
@@ -60,7 +65,8 @@ motiondata1 <- read.csv(paste0(mydir,"/rfMRI_REST1_LR.csv"), header = FALSE, col
 modul_data1 <- data.frame(subject_list, run1_data)
 alldata1 <- merge(modul_data1, motiondata1, by = "subject", all = TRUE)
 alldata1 <- merge(alldata1, run1_pcor, by = "subject", all = TRUE) %>% dplyr::select(-c(avgweight_Spearman, modul_Spearman)) #don't duplicate Spearman, use the new data
-alldata1 <- cbind(alldata1, run1_newmets)
+alldata1 <- cbind(alldata1, run1_newmets) %>% dplyr::select(-c(avgweight_TikhonovPartialCorrelation,modul_TikhonovPartialCorrelation))
+alldata1 <- cbind(alldata1, run1_tikhonov)
 alldata1 <- alldata1 %>% filter(.,num_communities_PartialCorrelation != 0) #802 subjects -> 778 subjects
 #recode age to be the median of the bins that are provided
 alldata1$Age_numeric <- dplyr::recode(alldata1$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
@@ -70,7 +76,8 @@ motiondata2 <- read.csv(paste0(mydir,"/rfMRI_REST1_RL.csv"), header = FALSE, col
 modul_data2 <- data.frame(subject_list, run2_data)
 alldata2 <- merge(modul_data2, motiondata2, by = "subject", all = TRUE)
 alldata2 <- merge(alldata2, run2_pcor, by = "subject", all = TRUE)%>% dplyr::select(-c(avgweight_Spearman, modul_Spearman)) #don't duplicate Spearman, use the new data
-alldata2 <- cbind(alldata2, run2_newmets)
+alldata2 <- cbind(alldata2, run2_newmets) %>% dplyr::select(-c(avgweight_TikhonovPartialCorrelation,modul_TikhonovPartialCorrelation))
+alldata2 <- cbind(alldata2, run2_tikhonov)
 alldata2 <- alldata2 %>% filter(.,num_communities_PartialCorrelation != 0) #xxx subjects -> 800 subjects
 #recode age to be the median of the bins that are provided
 alldata2$Age_numeric <- dplyr::recode(alldata2$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
@@ -80,7 +87,8 @@ motiondata3 <- read.csv(paste0(mydir,"/rfMRI_REST2_LR.csv"), header = FALSE, col
 modul_data3 <- data.frame(subject_list, run3_data)
 alldata3 <- merge(modul_data3, motiondata3, by = "subject", all = TRUE)
 alldata3 <- merge(alldata3, run3_pcor, by = "subject", all = TRUE)%>% dplyr::select(-c(avgweight_Spearman, modul_Spearman)) #don't duplicate Spearman, use the new data
-alldata3 <- cbind(alldata3, run3_newmets)
+alldata3 <- cbind(alldata3, run3_newmets) %>% dplyr::select(-c(avgweight_TikhonovPartialCorrelation,modul_TikhonovPartialCorrelation))
+alldata3 <- cbind(alldata3, run3_tikhonov)
 alldata3 <- alldata3 %>% filter(.,num_communities_PartialCorrelation != 0) #xxx subjects -> 776 subjects
 alldata3 <- na.omit(alldata3)
 #recode age to be the median of the bins that are provided
@@ -91,7 +99,8 @@ motiondata4 <- read.csv(paste0(mydir,"/rfMRI_REST2_RL.csv"), header = FALSE, col
 modul_data4 <- data.frame(subject_list, run4_data)
 alldata4 <- merge(modul_data4, motiondata4, by = "subject", all = TRUE)
 alldata4 <- merge(alldata4, run4_pcor, by = "subject", all = TRUE)%>% dplyr::select(-c(avgweight_Spearman, modul_Spearman)) #don't duplicate Spearman, use the new data
-alldata4 <- cbind(alldata4, run4_newmets)
+alldata4 <- cbind(alldata4, run4_newmets) %>% dplyr::select(-c(avgweight_TikhonovPartialCorrelation,modul_TikhonovPartialCorrelation))
+alldata4 <- cbind(alldata4, run4_tikhonov)
 alldata4 <- alldata4 %>% filter(.,num_communities_PartialCorrelation != 0) #xxx subjects -> 763 subjects
 alldata4 <- na.omit(alldata4)
 #recode age to be the median of the bins that are provided
@@ -171,9 +180,9 @@ metrics=c("Pearson", "Spearman", "PartialCorrelation", "TikhonovPartialCorrelati
 #calculate the relationship between modularity and motion controlling for avg weight
 for (i in 1:4){
   assign("data",get(paste0("alldata",i)))
-  pcorr_modul_estimate=numeric(6)
+  pcorr_modul_estimate=numeric(8)
   for (l in 1:8){
-    assign("metric", metrics[l])
+    assign("metric", metrics[l]) 
     temp <- data %>% dplyr::select(.,matches(paste0("avgweight_",metric,"$")),matches(paste0("modul_",metric,"$")),matches("motion"))
     print(colnames(temp))
     pcorr_modul_estimate[l] <- as.numeric(pcor.test(temp[2], temp$motion, temp[1], method = "pearson")$estimate)
@@ -216,10 +225,10 @@ metrics=c("Pearson", "Spearman", "PartialCorrelation", "TikhonovPartialCorrelati
 #calculate the relationship between modularity and motion controlling for avg weight
 for (i in 1:4){
   assign("data",get(paste0("alldata",i)))
-  pcorr_modul_estimate=numeric(6)
-  for (l in 1:6){
+  pcorr_modul_estimate=numeric(8)
+  for (l in 1:8){
     assign("metric", metrics[l])
-    temp <- data %>% dplyr::select(.,matches(paste0("_",metric,"$")),matches("bp_motion"), matches("Age_numeric"),matches("Gender_numeric"))
+    temp <- data %>% dplyr::select(.,matches(paste0("avgweight_",metric,"$")),matches(paste0("modul_",metric,"$")),matches("bp_motion"), matches("Age_numeric"),matches("Gender_numeric"))
     print(colnames(temp))
     temp2 <- cbind(temp[1], temp$Age_numeric, temp$Gender_numeric)
     pcorr_modul_estimate[l] <- as.numeric(pcor.test(temp[2], temp$bp_motion, temp2, method = "pearson")$estimate)
@@ -243,7 +252,7 @@ p<-ggplot(all, aes(x=metrics, y=value, color=metrics)) +
   geom_jitter(position=position_jitter(0), cex=2.5)
 p + theme_classic() + stat_summary(fun.data="mean_sdl",fun.args = list(mult = 1) ,
                  geom="pointrange", shape=95, cex=1) + labs(title="333-node Gordon parcellation",x="", y = "Partial correlation of Q with bandpass-filtered motion")+ theme(plot.title = element_text(hjust = 0.5), legend.position = "none")+ theme(axis.text=element_text(size=14),
-        axis.title=element_text(size=14)) +scale_color_manual(values=c("#0072BD", "#D95319", "#EDB120", "#7E2F8E", "#77AC30", "#4DBEEE"))+geom_hline(yintercept = 0)
+        axis.title=element_text(size=14)) +scale_color_manual(values=c("#0072BD", '#006432','#EB008B',"#D95319", "#EDB120", "#7E2F8E", "#77AC30", "#4DBEEE")) +geom_hline(yintercept = 0)
 ```
 # Low-motion Edges
 Examine modularity calculated only using the 20% of edges that show the lowest susceptibility to motion.
@@ -337,6 +346,9 @@ colnames(run1_pcor) <- c(colnames(subject_list), "PartialCorrelation")
 run1_newmets=readMat(paste0(dropbox_data, "new_metrics_modul_gordon_partition1.mat"))
 run1_newmets <- data.frame(matrix(unlist(run1_newmets$modul, use.names = FALSE), nrow=length(run1_newmets$modul[[1]]), byrow=F))
 colnames(run1_newmets) =c("Spearman", "TikhonovPartialCorrelation")
+run1_tikhonov=readMat(paste0(cbica_data, "gsr_filter/Tikhonov_new_modul_gordon_partition1.mat"))
+run1_tikhonov <- data.frame(matrix(unlist(run1_tikhonov$modul, use.names = FALSE), nrow=length(run1_tikhonov$modul[[1]]), byrow=F))
+colnames(run1_tikhonov) <- c("TikhonovPartialCorrelation")
 
 rerank_run2_data=readMat(paste0("~/Dropbox/projects/in_progress/arun_fc_metrics_motion/output/data/Gordon_ICA_FIX/modul_gordon_partition2.mat"))
 rerank_run2_data <- data.frame(matrix(unlist(rerank_run2_data$modul, use.names = FALSE), nrow=length(rerank_run2_data$modul[[1]]), byrow=F))
@@ -346,6 +358,9 @@ colnames(run2_pcor) <- c(colnames(subject_list), "PartialCorrelation")
 run2_newmets=readMat(paste0(dropbox_data, "new_metrics_modul_gordon_partition2.mat"))
 run2_newmets <- data.frame(matrix(unlist(run2_newmets$modul, use.names = FALSE), nrow=length(run2_newmets$modul[[1]]), byrow=F))
 colnames(run2_newmets) =c("Spearman", "TikhonovPartialCorrelation")
+run2_tikhonov=readMat(paste0(cbica_data, "gsr_filter/Tikhonov_new_modul_gordon_partition2.mat"))
+run2_tikhonov <- data.frame(matrix(unlist(run2_tikhonov$modul, use.names = FALSE), nrow=length(run2_tikhonov$modul[[1]]), byrow=F))
+colnames(run2_tikhonov) <- c("TikhonovPartialCorrelation")
 
 rerank_run3_data=readMat(paste0("~/Dropbox/projects/in_progress/arun_fc_metrics_motion/output/data/Gordon_ICA_FIX/modul_gordon_partition3.mat"))
 rerank_run3_data <- data.frame(matrix(unlist(rerank_run3_data$modul, use.names = FALSE), nrow=length(rerank_run3_data$modul[[1]]), byrow=F))
@@ -355,6 +370,9 @@ colnames(run3_pcor) <- c(colnames(subject_list), "PartialCorrelation")
 run3_newmets=readMat(paste0(dropbox_data, "new_metrics_modul_gordon_partition3.mat"))
 run3_newmets <- data.frame(matrix(unlist(run3_newmets$modul, use.names = FALSE), nrow=length(run3_newmets$modul[[1]]), byrow=F))
 colnames(run3_newmets) =c("Spearman", "TikhonovPartialCorrelation")
+run3_tikhonov=readMat(paste0(cbica_data, "gsr_filter/Tikhonov_new_modul_gordon_partition3.mat"))
+run3_tikhonov <- data.frame(matrix(unlist(run3_tikhonov$modul, use.names = FALSE), nrow=length(run3_tikhonov$modul[[1]]), byrow=F))
+colnames(run3_tikhonov) <- c("TikhonovPartialCorrelation")
 
 rerank_run4_data=readMat(paste0("~/Dropbox/projects/in_progress/arun_fc_metrics_motion/output/data/Gordon_ICA_FIX/new_modul_gordon_partition4.mat"))
 rerank_run4_data <- data.frame(matrix(unlist(rerank_run4_data$modul, use.names = FALSE), nrow=length(rerank_run4_data$modul[[1]]), byrow=F))
@@ -364,6 +382,9 @@ colnames(run4_pcor) <- c(colnames(subject_list), "PartialCorrelation")
 run4_newmets=readMat(paste0(dropbox_data, "new_metrics_modul_gordon_partition4.mat"))
 run4_newmets <- data.frame(matrix(unlist(run4_newmets$modul, use.names = FALSE), nrow=length(run4_newmets$modul[[1]]), byrow=F))
 colnames(run4_newmets) =c("Spearman", "TikhonovPartialCorrelation")
+run4_tikhonov=readMat(paste0(cbica_data, "gsr_filter/Tikhonov_new_modul_gordon_partition4.mat"))
+run4_tikhonov <- data.frame(matrix(unlist(run4_tikhonov$modul, use.names = FALSE), nrow=length(run4_tikhonov$modul[[1]]), byrow=F))
+colnames(run4_tikhonov) <- c("TikhonovPartialCorrelation")
 
 subject_list=read.csv(paste0(data_dir, "data/subjLists/S1200_Release_Subjects_Demographics.csv"))
 subject_list <- subject_list %>% dplyr::select(.,Subject:Age) %>% rename(., subject=Subject)
@@ -372,7 +393,8 @@ mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Mot
 motiondata1 <- read.csv(paste0(mydir,"/rfMRI_REST1_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
 modul_data1 <- data.frame(run1_pcor, rerank_run1_data)
 rerank_alldata1 <- merge(modul_data1, motiondata1, by="subject", all=TRUE) %>% dplyr::select(c(-Spearman))
-rerank_alldata1 <- cbind(rerank_alldata1,run1_newmets)
+rerank_alldata1 <- cbind(rerank_alldata1,run1_newmets) %>% dplyr::select(-c("TikhonovPartialCorrelation"))
+rerank_alldata1 <- cbind(rerank_alldata1,run1_tikhonov)
 rerank_alldata1 <- rerank_alldata1 %>% filter(.,PartialCorrelation != 0)
 #recode age to be the median of the bins that are provided
 rerank_alldata1$Age_numeric <- dplyr::recode(rerank_alldata1$Age, "22-25"= 23.5, "26-30"=28, "31-35"=33, "36+"=36)
@@ -380,7 +402,8 @@ mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Mot
 motiondata2 <- read.csv(paste0(mydir,"/rfMRI_REST1_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
 modul_data2 <- data.frame(run2_pcor, rerank_run2_data)
 modul_data2 <- merge(modul_data2, motiondata2, by="subject", all=TRUE) %>% dplyr::select(c(-Spearman))
-rerank_alldata2 <- cbind(modul_data2,run2_newmets)
+rerank_alldata2 <- cbind(modul_data2,run2_newmets) %>% dplyr::select(-c("TikhonovPartialCorrelation"))
+rerank_alldata2 <- cbind(rerank_alldata2, run2_tikhonov)
 rerank_alldata2 <- rerank_alldata2 %>% filter(.,PartialCorrelation != 0)
 rerank_alldata2 <- rerank_alldata2 %>% filter(., Pearson != 0)
 #recode age to be the median of the bins that are provided
@@ -389,7 +412,8 @@ mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Mot
 motiondata3 <- read.csv(paste0(mydir,"/rfMRI_REST2_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
 modul_data3 <- data.frame(run3_pcor, rerank_run3_data)
 modul_data3 <- merge(modul_data3, motiondata3, by="subject", all=TRUE)%>% dplyr::select(c(-Spearman))
-rerank_alldata3 <- cbind(modul_data3,run3_newmets)
+rerank_alldata3 <- cbind(modul_data3,run3_newmets) %>% dplyr::select(-c("TikhonovPartialCorrelation"))
+rerank_alldata3 <- cbind(rerank_alldata3, run3_tikhonov)
 rerank_alldata3 <- rerank_alldata3 %>% filter(.,PartialCorrelation != 0) 
 rerank_alldata3 <- na.omit(rerank_alldata3)
 #recode age to be the median of the bins that are provided
@@ -398,7 +422,8 @@ mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Mot
 motiondata4 <- read.csv(paste0(mydir,"/rfMRI_REST2_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
 modul_data4 <- data.frame(run4_pcor, rerank_run4_data)
 modul_data4 <- merge(modul_data4, motiondata4, by="subject", all=TRUE) %>% dplyr::select(c(-Spearman))
-rerank_alldata4 <- cbind(modul_data4,run4_newmets)
+rerank_alldata4 <- cbind(modul_data4,run4_newmets) %>% dplyr::select(-c("TikhonovPartialCorrelation"))
+rerank_alldata4 <- cbind(rerank_alldata4, run4_tikhonov)
 rerank_alldata4 <- rerank_alldata4 %>% filter(.,PartialCorrelation != 0)
 rerank_alldata4 <- na.omit(rerank_alldata4)
 ```
@@ -410,7 +435,7 @@ metrics=c("Pearson", "Spearman", "PartialCorrelation", "TikhonovPartialCorrelati
 #calculate the relationship between raw modularity and motion for each of the 4 runs
 for (i in 1:4){
   assign("data",get(paste0("rerank_alldata",i)))
-  mean_modul=numeric(6)
+  mean_modul=numeric(8)
    for (l in 1:8){
     assign("metric", metrics[l])
     temp <- data %>% dplyr::select(.,matches(paste0(metric,"$")))
@@ -448,6 +473,9 @@ run1_pcor <- read.csv(paste0(cbica_data, "modularity_baseline_ppc_pcor_absvalue_
 run1_newmets=readMat(paste0(new_data, "new_metrics_absvalue_modul_run1.mat"))
 run1_newmets <- data.frame(matrix(unlist(run1_newmets$modul, use.names = FALSE), nrow=length(run1_newmets$modul[[1]]), byrow=F))
 colnames(run1_newmets) =c("Spearman", "TikhonovPartialCorrelation")
+tikhonov_data="/cbica/home/tooleyu/projects/in_progress/arun_fc_metrics_motion/output/Gordon_ICA_FIX/gsr_filter/"
+run1_tikhonov=read.csv(paste0(tikhonov_data, "Tikhonov_new_absvalue_modularity_gordon__REST1_LR_061521.csv"))
+colnames(run1_tikhonov) <- c("avgweight_TikhonovPartialCorrelation","TikhonovPartialCorrelation")
 
 rerank_run2_data=readMat(paste0(dropbox_data, "modul_absvalue_run2.mat"))
 rerank_run2_data <- data.frame(matrix(unlist(rerank_run2_data$modul, use.names = FALSE), nrow=length(rerank_run2_data$modul[[1]]), byrow=F))
@@ -456,6 +484,8 @@ run2_pcor <- read.csv(paste0(cbica_data, "modularity_baseline_ppc_pcor_absvalue_
 run2_newmets=readMat(paste0(new_data, "new_metrics_absvalue_modul_run2.mat"))
 run2_newmets <- data.frame(matrix(unlist(run2_newmets$modul, use.names = FALSE), nrow=length(run2_newmets$modul[[1]]), byrow=F))
 colnames(run2_newmets) =c("Spearman", "TikhonovPartialCorrelation")
+run2_tikhonov=read.csv(paste0(tikhonov_data, "Tikhonov_new_absvalue_modularity_gordon__REST1_RL_061521.csv"))
+colnames(run2_tikhonov) <- c("avgweight_TikhonovPartialCorrelation","TikhonovPartialCorrelation")
 
 rerank_run3_data=readMat(paste0(dropbox_data, "modul_absvalue_run3.mat"))
 rerank_run3_data <- data.frame(matrix(unlist(rerank_run3_data$modul, use.names = FALSE), nrow=length(rerank_run3_data$modul[[1]]), byrow=F))
@@ -464,6 +494,8 @@ run3_pcor<- read.csv(paste0(cbica_data, "modularity_baseline_ppc_pcor_absvalue_P
 run3_newmets=readMat(paste0(new_data, "new_metrics_absvalue_modul_run3.mat"))
 run3_newmets <- data.frame(matrix(unlist(run3_newmets$modul, use.names = FALSE), nrow=length(run3_newmets$modul[[1]]), byrow=F))
 colnames(run3_newmets) =c("Spearman", "TikhonovPartialCorrelation")
+run3_tikhonov=read.csv(paste0(tikhonov_data, "Tikhonov_new_absvalue_modularity_gordon__REST2_LR_061521.csv"))
+colnames(run3_tikhonov) <- c("avgweight_TikhonovPartialCorrelation","TikhonovPartialCorrelation")
 
 rerank_run4_data=readMat(paste0(dropbox_data, "modul_absvalue_run4.mat"))
 rerank_run4_data <- data.frame(matrix(unlist(rerank_run4_data$modul, use.names = FALSE), nrow=length(rerank_run4_data$modul[[1]]), byrow=F))
@@ -472,6 +504,8 @@ run4_pcor <- read.csv(paste0(cbica_data, "modularity_baseline_ppc_pcor_absvalue_
 run4_newmets=readMat(paste0(new_data, "new_metrics_absvalue_modul_run4.mat"))
 run4_newmets <- data.frame(matrix(unlist(run4_newmets$modul, use.names = FALSE), nrow=length(run4_newmets$modul[[1]]), byrow=F))
 colnames(run4_newmets) =c("Spearman", "TikhonovPartialCorrelation")
+run4_tikhonov=read.csv(paste0(tikhonov_data, "Tikhonov_new_absvalue_modularity_gordon__REST2_RL_061521.csv"))
+colnames(run4_tikhonov) <- c("avgweight_TikhonovPartialCorrelation","TikhonovPartialCorrelation")
 
 subject_list=read.csv(paste0(data_dir, "data/subjLists/S1200_Release_Subjects_Demographics.csv"))
 subject_list <- subject_list %>% dplyr::select(.,Subject:Age) %>% rename(., subject=Subject)
@@ -481,7 +515,8 @@ motiondata1 <- read.csv(paste0(mydir,"/rfMRI_REST1_LR.csv"), header = FALSE, col
 modul_data1 <- data.frame(subject_list, rerank_run1_data)
 #rerank_alldata1 <- merge(modul_data1, alldata1, by = "subject", all = TRUE)
 rerank_alldata1 <- merge(modul_data1, run1_pcor, by = "subject", all = TRUE) %>% dplyr::select(c(-Spearman))
-rerank_alldata1 <- cbind(rerank_alldata1,run1_newmets)
+rerank_alldata1 <- cbind(rerank_alldata1,run1_newmets) %>% dplyr::select(-c("TikhonovPartialCorrelation"))
+rerank_alldata1 <- cbind(rerank_alldata1, run1_tikhonov)
 rerank_alldata1 <- merge(rerank_alldata1, motiondata1, by = "subject", all = TRUE)
 rerank_alldata1 <- rerank_alldata1 %>% filter(., num_communities_PartialCorrelation != 0)
 #recode age to be the median of the bins that are provided
@@ -493,7 +528,8 @@ motiondata2 <- read.csv(paste0(mydir,"/rfMRI_REST1_RL.csv"), header = FALSE, col
 modul_data2 <- data.frame(subject_list, rerank_run2_data)
 #rerank_alldata2 <- merge(modul_data2, alldata2, by = "subject", all = TRUE)
 rerank_alldata2 <- merge(modul_data2, run2_pcor, by = "subject", all = TRUE)%>% dplyr::select(c(-Spearman))
-rerank_alldata2 <- cbind(rerank_alldata2,run2_newmets)
+rerank_alldata2 <- cbind(rerank_alldata2,run2_newmets) %>% dplyr::select(-c("TikhonovPartialCorrelation"))
+rerank_alldata2 <- cbind(rerank_alldata2, run2_tikhonov)
 rerank_alldata2 <- merge(rerank_alldata2, motiondata2, by = "subject", all = TRUE)
 rerank_alldata2 <- rerank_alldata2 %>% filter(., num_communities_PartialCorrelation != 0)
 #recode age to be the median of the bins that are provided
@@ -504,7 +540,8 @@ mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Mot
 motiondata3 <- read.csv(paste0(mydir,"/rfMRI_REST2_LR.csv"), header = FALSE, col.names = c("subject", "motion"))
 modul_data3 <- data.frame(subject_list, rerank_run3_data)
 rerank_alldata3 <- merge(modul_data3, run3_pcor, by = "subject", all = TRUE)%>% dplyr::select(c(-Spearman))
-rerank_alldata3 <- cbind(rerank_alldata3,run3_newmets)
+rerank_alldata3 <- cbind(rerank_alldata3,run3_newmets) %>% dplyr::select(-c("TikhonovPartialCorrelation"))
+rerank_alldata3 <- cbind(rerank_alldata3, run3_tikhonov)
 rerank_alldata3 <- merge(rerank_alldata3, motiondata3, by = "subject", all = TRUE)
 rerank_alldata3 <- rerank_alldata3 %>% filter(., num_communities_PartialCorrelation != 0)
 rerank_alldata3 <- na.omit(rerank_alldata3)
@@ -516,7 +553,8 @@ mydir="~/Documents/projects/in_progress/arun_fc_metrics_motion/data/subjData/Mot
 motiondata4 <- read.csv(paste0(mydir,"/rfMRI_REST2_RL.csv"), header = FALSE, col.names = c("subject", "motion"))
 modul_data4 <- data.frame(subject_list, rerank_run4_data)
 rerank_alldata4 <- merge(modul_data4, run4_pcor, by = "subject", all = TRUE)%>% dplyr::select(c(-Spearman))
-rerank_alldata4 <- cbind(rerank_alldata4,run4_newmets)
+rerank_alldata4 <- cbind(rerank_alldata4,run4_newmets) %>% dplyr::select(-c("TikhonovPartialCorrelation"))
+rerank_alldata4 <- cbind(rerank_alldata4, run4_tikhonov)
 rerank_alldata4 <- merge(rerank_alldata4, motiondata4, by = "subject", all = TRUE)
 rerank_alldata4 <- rerank_alldata4 %>% filter(., num_communities_PartialCorrelation != 0)
 rerank_alldata4 <- na.omit(rerank_alldata4)
@@ -532,7 +570,7 @@ metrics=c("Pearson", "Spearman", "PartialCorrelation", "TikhonovPartialCorrelati
 #calculate the relationship between raw modularity and motion for each of the 4 runs
 for (i in 1:4){
   assign("data",get(paste0("rerank_alldata",i)))
-  mean_modul=numeric(6)
+  mean_modul=numeric(8)
    for (l in 1:8){
     assign("metric", metrics[l])
     temp <- data %>% dplyr::select(.,matches(paste0("^",metric,"$")))

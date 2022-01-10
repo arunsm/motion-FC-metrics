@@ -12,20 +12,20 @@ addpath(genpath('/cbica/projects/spatial_topography/tools/matlab/'))
 subjList=readtable(fullfile(subj_dir, 'S1200_Release_Subjects_Demographics.csv'));
 subjList=subjList.Subject;
 
-%pipelines={'gsr_nofilter','nogsr_filter','nogsr_nofilter'}
+pipelines={'gsr_filter','gsr_nofilter','nogsr_filter','nogsr_nofilter'}
 rest_runs={'_REST1_LR_', '_REST1_RL_','_REST2_LR_','_REST2_RL_'};
 %fc_metrics={'Coherence', 'MutualInformation', 'MutualInformationTime','Pearson','PartialCorrelation', 'WaveletCoherence'};
 fc_metrics={'Spearman', 'TikhonovPartialCorrelation'}; %adding new metrics for reviewers
-%% initialize vectors
+% initialize vectors
 
 %%%%%%
-% for each of the three pipelines%
+% for each of the four pipelines%
 %%%%%%
-% for p=1:3
-%     pipeline=pipelines{p};
+%for p=1:4
+    %pipeline=pipelines{p};
     pipeline='gsr_filter'
     data_dir=strcat('/cbica/home/mahadeva/motion-FC-metrics/data/FunctionalConnectivityMatrices_', pipeline)
-    outdir=strcat('/cbica/home/tooleyu/projects/in_progress/arun_fc_metrics_motion/output/Gordon_ICA_FIX/abs_value_PearsonSpearman')
+    outdir=strcat('/cbica/home/tooleyu/projects/in_progress/arun_fc_metrics_motion/output/Gordon_ICA_FIX/', pipeline)
     if ~exist(outdir, 'dir')
        mkdir(outdir)
     end
@@ -39,10 +39,10 @@ for i=1:4
 %%%%%%
 %for each FC metric
 %%%%%%
-for j=1:2
-    metric=fc_metrics{j}
-%     j=5
-%     metric='PartialCorrelation'
+%for j=1:2
+    %metric=fc_metrics{j}
+    j=2
+    metric='TikhonovPartialCorrelation'
     modul.(metric)=zeros(length(subjList),1);
     avgweight.(metric)=zeros(length(subjList),1);
     num_communities.(metric)=zeros(length(subjList),1); %set up num communities
@@ -50,7 +50,7 @@ for j=1:2
 % while the average number of communities detected across participants is
 % less than 7, keep iterating
 avgnumcommunities=0
-gamma=0.76;
+gamma=0.96;
 while (avgnumcommunities < 6 | avgnumcommunities > 8)
 %%%%%%
 %for each subject
@@ -69,14 +69,14 @@ for n=1:length(subjList);
     %Community Louvain outputs a measure of modularity and can take signed
     %networks as input. Weighted the negative connections asymmetrically, Q* as
     %recommended by Rubinov & Sporns
-    [M Q]=community_louvain(AdjMat, gamma, [], 'negative_asym');
-    modul.(metric)(n,1)=Q
-    num_communities.(metric)(n,1)=length(unique(M)); %how many communities were output
+    %[M Q]=community_louvain(AdjMat, gamma, [], 'negative_asym');
+    %modul.(metric)(n,1)=Q;
+    %num_communities.(metric)(n,1)=length(unique(M)); %how many communities were output
 %else
     %use the default modularity
-    %[M Q]=community_louvain(AdjMat, gamma);
-    %modul.(metric)(n,1)=Q
-    %num_communities.(metric)(n,1)=length(unique(M));
+    [M Q]=community_louvain(AdjMat, gamma);
+    modul.(metric)(n,1)=Q;
+    num_communities.(metric)(n,1)=length(unique(M));
 %end
     catch
     disp('This subject not found')
@@ -86,41 +86,43 @@ avgnumcommunities=mean(num_communities.(metric)(num_communities.(metric)~=0))
 gamma=gamma+0.01
 end
     null_modul.(metric)=zeros(length(subjList),1);
-end
+%end
 %% Save outfiles for each run
-save(fullfile(outdir, strcat('new_metrics_absvalue_modul_run',int2str(i))), 'modul')
-save(fullfile(outdir, strcat('new_metrics_absvalue_numcommunities_run',int2str(i))), 'num_communities')
-save(fullfile(outdir, strcat('new_metrics_absvalue_avgnumcommunities_run',int2str(i))), 'avgnumcommunities')
-save(fullfile(outdir, strcat('new_metrics_absvalue_gamma_run',int2str(i))), 'gamma')
+save(fullfile(outdir, strcat('Tikhonov_new_absvalue_modul_run',int2str(i))), 'modul')
+save(fullfile(outdir, strcat('Tikhonov_new_absvalue_numcommunities_run',int2str(i))), 'num_communities')
+save(fullfile(outdir, strcat('Tikhonov_new_absvalue_avgnumcommunities_run',int2str(i))), 'avgnumcommunities')
+save(fullfile(outdir, strcat('Tikhonov_new_absvalue_gamma_run',int2str(i))), 'gamma')
 %outfile=dataset(subjList, avgweight.PartialCorrelation, modul.PartialCorrelation, num_communities.PartialCorrelation, repmat(avgnumcommunities, [length(subjList),1]), repmat(gamma, [length(subjList),1]))
 
 try
-    outfile=dataset(avgweight.Spearman, avgweight.TikhonovPartialCorrelation, modul.Spearman, modul.TikhonovPartialCorrelation)
+    outfile=dataset(avgweight.TikhonovPartialCorrelation, modul.TikhonovPartialCorrelation)
     %num_communities.Pearson, num_communities.Spearman, num_communities.Coherence, num_communities.WaveletCoherence, num_communities.MutualInformation, num_communities.MutualInformationTime,  repmat(allgamma.Pearson.(run_name),length(subjList),1), repmat(allgamma.Spearman.(run_name),length(subjList),1), repmat(allgamma.Coherence.(run_name),length(subjList),1), repmat(allgamma.WaveletCoherence.(run_name),length(subjList), 1), repmat(allgamma.MutualInformation.(run_name), length(subjList),1), repmat(allgamma.MutualInformationTime.(run_name), length(subjList), 1))
-    header={'avgweight_Spearman','avgweight_TikhonovPartialCorrelation',	'modul_Spearman',	'modul_TikhonovPartialCorrelation'}
+    header={'avgweight_TikhonovPartialCorrelation',	'modul_TikhonovPartialCorrelation'}
     %'num_communities_Pearson'	,'num_communities_Spearman'	,'num_communities_Coherence'	,'num_communities_WaveletCoherence','num_communities_MutualInformation'	,'num_communities_MutualInformationTime'	,'allgamma_Pearson'	,'allgamma_Spearman',	'allgamma_Coherence','allgamma_WaveletCoherence','allgamma_MutualInformation','allgamma_MutualInformationTime'}
     outfile.Properties.VarNames=header
-    filename=strcat('new_metrics_absvalue_modularity_gordon_',run, '020321.csv') %need to figure out how to get the headers to work.
+    filename=strcat('Tikhonov_new_absvalue_modularity_gordon_',run, '061521.csv') %need to figure out how to get the headers to work.
     export(outfile,'File',fullfile(outdir,filename),'Delimiter',',')
 catch
     
     disp('saving csvs didnt work')
 end
 end
-%fix the header here
-% header={'subjList', 'avgweight_PartialCorrelation', 'modul_PartialCorrelation', 'num_communities_PartialCorrelation','avgnumcommunities', 'allgamma'}
-% outfile.Properties.VarNames=header
-
-% filename=strcat('modularity_baseline_ppc_absvalue_pcor_',metric, run, '7620.csv')
-% export(outfile,'File',fullfile(outdir,filename),'Delimiter',',')
-
-% %export average number of communities
-% outfile2=table(avgnumcommunities.Pearson.Pearson, avgnumcommunities.Pearson.Spearman,av.numcommunities.Pearson.Coherence, avgnumcommunities.Pearson.WaveletCoherence, avgnumcommunities.Pearson.MutualInformation, avgnumcommunities.Pearson.MutualInformationTime, avgnumcommunities.WaveletCoherence.Pearson, avgnumcommunities.WaveletCoherence.Spearman, avgnumcommunities.WaveletCoherence.Coherence, avgnumcommunities.WaveletCoherence.WaveletCoherence, avgnumcommunities.WaveletCoherence.MutualInformation, avgnumcommunities.WaveletCoherence.MutualInformationTime)
-% save(fullfile(outdir, 'avgnumcommunities_071619'),'outfile2')  
 %end
-% save the all gamma variables, just in case
-% filename=fullfile(outdir,'allgamma_modularity_withnulls_092419.mat')
-% save(filename, 'allgamma')
+
+%fix the header here
+% header={'subjList','avgweight_TikhonovPartialCorrelation',	'modul_TikhonovPartialCorrelation', 'num_communities_TikhonovPartialCorrelation','avgnumcommunities', 'allgamma'}
+% outfile.Properties.VarNames=header
+% 
+% filename=strcat('modularity_',metric, run, '061521.csv')
+% export(outfile,'File',fullfile(outdir,filename),'Delimiter',',')
+% 
+%export average number of communities
+%outfile2=table(avgnumcommunities.Pearson.Pearson, avgnumcommunities.Pearson.Spearman,av.numcommunities.Pearson.Coherence, avgnumcommunities.Pearson.WaveletCoherence, avgnumcommunities.Pearson.MutualInformation, avgnumcommunities.Pearson.MutualInformationTime, avgnumcommunities.WaveletCoherence.Pearson, avgnumcommunities.WaveletCoherence.Spearman, avgnumcommunities.WaveletCoherence.Coherence, avgnumcommunities.WaveletCoherence.WaveletCoherence, avgnumcommunities.WaveletCoherence.MutualInformation, avgnumcommunities.WaveletCoherence.MutualInformationTime)
+%save(fullfile(outdir, 'avgnumcommunities_071619'),'outfile2')  
+%end
+%save the all gamma variables, just in case
+%filename=fullfile(outdir,'allgamma_modularity_withnulls_092419.mat')
+%save(filename, 'allgamma')
 % 
 % %%%%%%%%%%%%%%%%%%%%%%%
 % %%% Reranking edge weights and calculate modularity %%%
@@ -239,19 +241,19 @@ end
 % clear modul2
 % clear numcommunities
 % %For Gordon parcels
-% %parcels=readtable('/cbica/projects/spatial_topography/tools/parcellations/gordon333/Parcels.csv')
-% %parcels=parcels(:,{'Community','ParcelID'})
-% %parcels.Community=categorical(parcels.Community)
-% %parcels=double(parcels.Community)
+% % parcels=readtable('/cbica/projects/spatial_topography/tools/parcellations/gordon333/Parcels.csv')
+% % parcels=parcels(:,{'Community','ParcelID'})
+% % parcels.Community=categorical(parcels.Community)
+% % parcels=double(parcels.Community)
 % %For Yeo parcels
 % parcels=readtable('/cbica/projects/spatial_topography/tools/parcellations/yeo7_from_freesurfer/yeo_100_17net_affiliation.txt','ReadVariableNames', false)
-% pipeline='gsr_filter'
+% %pipeline='gsr_filter'
 % 
 % %%%%%%
 % % for each of the three pipelines%
 % %%%%%%
-% % for p=1:3
-% %     pipeline=pipelines{p};
+% for p=1:4
+%     pipeline=pipelines{p};
 %     %pipeline='nogsr_nofilter'
 %     data_dir=strcat('/cbica/home/mahadeva/motion-FC-metrics/data/FunctionalConnectivityMatrices_', pipeline)
 %     outdir=strcat('/cbica/home/tooleyu/projects/in_progress/arun_fc_metrics_motion/output/Schaefer_100_ICA_FIX/',pipeline)
@@ -268,17 +270,17 @@ end
 % %%%%%%
 % %for each FC metric
 % %%%%%%
-% for j=1:2
+% %for j=1:2
 %     %j=5
-%     %metric='PartialCorrelation'
-%     metric=fc_metrics{j}
+%     metric='TikhonovPartialCorrelation'
+%     %metric=fc_metrics{j}
 %     modul.(metric)=zeros(length(subjList),1);
 %     modul2.(metric)=zeros(length(subjList),1);
 % %%%%%%
 % %for each subject
 % %%%%%%
 %     for n=1:length(subjList);
-%         sub=subjList(n)
+%         sub=subjList(n);
 %         try
 %         file=fullfile(data_dir,strcat('yeo_100_',num2str(sub),run,'FIX_matrices_', metric,'.mat'));
 %         load(file);
@@ -288,7 +290,7 @@ end
 %     %if (j==4 | j == 5) %Pearson or spearman, use the negative weighting  
 %         %Weighted the negative connections asymmetrically.
 %         %For Gordon
-%         %[M Q]=community_louvain(AdjMat, [], double(parcels.Community), 'negative_asym');
+%         %[M Q]=community_louvain(AdjMat, [], parcels, 'negative_asym');
 %         [M Q]=modul_only(AdjMat, [], parcels.Var1, 'negative_asym');
 %         modul.(metric)(n,1)=Q;
 %     %else
@@ -301,19 +303,20 @@ end
 %         disp('This subject not found')
 %         end
 %     end
-% end
+% %end
 % %% Save outfiles for each run
-% save(fullfile(outdir, strcat('new_metrics_modul_yeo_partition',int2str(i))), 'modul')
+% save(fullfile(outdir, strcat('Tikhonov_new_modul_yeo_partition',int2str(i))), 'modul')
 % try
-%     outfile=dataset(avgweight.Spearman, avgweight.TikhonovPartialCorrelation, modul.Spearman, modul.TikhonovPartialCorrelation)
+%     outfile=dataset(avgweight.TikhonovPartialCorrelation, modul.TikhonovPartialCorrelation)
 %     %num_communities.Pearson, num_communities.Spearman, num_communities.Coherence, num_communities.WaveletCoherence, num_communities.MutualInformation, num_communities.MutualInformationTime,  repmat(allgamma.Pearson.(run_name),length(subjList),1), repmat(allgamma.Spearman.(run_name),length(subjList),1), repmat(allgamma.Coherence.(run_name),length(subjList),1), repmat(allgamma.WaveletCoherence.(run_name),length(subjList), 1), repmat(allgamma.MutualInformation.(run_name), length(subjList),1), repmat(allgamma.MutualInformationTime.(run_name), length(subjList), 1))
-%     header={'avgweight_Spearman','avgweight_TikhonovPartialCorrelation',	'modul_Spearman',	'modul_TikhonovPartialCorrelation'}
+%     header={'avgweight_TikhonovPartialCorrelation',	'modul_TikhonovPartialCorrelation'}
 %     %'num_communities_Pearson'	,'num_communities_Spearman'	,'num_communities_Coherence'	,'num_communities_WaveletCoherence','num_communities_MutualInformation'	,'num_communities_MutualInformationTime'	,'allgamma_Pearson'	,'allgamma_Spearman',	'allgamma_Coherence','allgamma_WaveletCoherence','allgamma_MutualInformation','allgamma_MutualInformationTime'}
 %     outfile.Properties.VarNames=header
-%     filename=strcat('new_metrics_modularity_yeo_partition',run, '020221.csv') %need to figure out how to get the headers to work.
+%     filename=strcat('Tikhonov_new_modularity_yeo_partition',run, '061521.csv') %need to figure out how to get the headers to work.
 %     export(outfile,'File',fullfile(outdir,filename),'Delimiter',',')
 % catch
 %     
 %     disp('saving csvs didnt work')
+% end
 % end
 % end

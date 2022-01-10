@@ -49,6 +49,11 @@ run1_newmets <- read.csv(paste0(cbica_data,"gsr_filter/new_metrics_modularity_sc
 run2_newmets <- read.csv(paste0(cbica_data,"gsr_filter/new_metrics_modularity_schaefer__REST1_RL_020221.csv")) 
 run3_newmets <- read.csv(paste0(cbica_data,"gsr_filter/new_metrics_modularity_schaefer__REST2_LR_020221.csv")) 
 run4_newmets <- read.csv(paste0(cbica_data,"gsr_filter/new_metrics_modularity_schaefer__REST2_RL_020221.csv")) 
+#add new Tikhonov metrics
+run1_tikhonov <- read.csv(paste0(cbica_data,"gsr_filter/Tikhonov_new_modularity_schaefer__REST1_LR_061521.csv")) 
+run2_tikhonov <- read.csv(paste0(cbica_data,"gsr_filter/Tikhonov_new_modularity_schaefer__REST1_RL_061521.csv")) 
+run3_tikhonov <- read.csv(paste0(cbica_data,"gsr_filter/Tikhonov_new_modularity_schaefer__REST2_LR_061521.csv")) 
+run4_tikhonov <- read.csv(paste0(cbica_data,"gsr_filter/Tikhonov_new_modularity_schaefer__REST2_RL_061521.csv")) 
 ```
 
 ## Do partial correlations for each run and average them together
